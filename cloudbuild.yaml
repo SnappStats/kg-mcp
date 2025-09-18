@@ -1,0 +1,49 @@
+# This file defines the build, push, and deploy steps for a Cloud Run service.
+
+steps:
+  # Step 1: Build the Docker image
+  # This step uses the official Docker builder to create the container image.
+- id: 'Docker Build'
+  name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'build', '-t',
+    'us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/webpage-mcp',
+    '.'
+  ]
+
+  # Step 2: Push the Docker image to Artifact Registry
+  # This step pushes the newly built image to Google Artifact Registry.
+  # It depends on the 'Docker Build' step completing successfully.
+- id: 'Docker Push'
+  name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'push',
+    'us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/webpage-mcp'
+  ]
+  waitFor: ['Docker Build']
+
+  # Step 3: Deploy the image to Cloud Run
+  # This step uses the gcloud builder to deploy the container.
+  # The 'entrypoint' is set to 'gcloud', so the command starts with 'run'.
+  # It depends on the 'Docker Push' step completing successfully.
+- id: 'Deploy to Cloud Run'
+  name: 'gcr.io/cloud-builders/gcloud'
+  args: [
+    'run', 'deploy', 'webpage-mcp',
+    '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/webpage-mcp',
+    '--region', 'us-central1',
+    '--platform', 'managed',
+    '--memory=1Gi',
+    '--min-instances', '1',
+    '--allow-unauthenticated',
+    '--env-vars-file', '.env.yaml',
+    '--set-secrets=GOOGLE_API_KEY=VERTEX_AI_API_KEY:1'
+  ]
+  waitFor: ['Docker Push']
+
+# Specify the image to be pushed to Artifact Registry upon successful build.
+images:
+- 'us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/webpage-mcp'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

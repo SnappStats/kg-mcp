@@ -1,0 +1,13 @@
+[project]
+name = "wikipedia-mcp-service"
+version = "0.1.0"
+description = "Wikipedia MCP server"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4==4.12.3",
+    "google-adk==0.3.0",
+    "html2text==2024.2.26",
+    "mcp[cli]==1.5.0",
+    "requests==2.32.3"
+]
