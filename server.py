@@ -15,8 +15,8 @@ from mcp.shared.exceptions import McpError
 from mcp.types import ErrorData, INTERNAL_ERROR, INVALID_PARAMS
 from mcp.server.sse import SseServerTransport
 
-# Create an MCP server instance with an identifier ("wiki")
-mcp = FastMCP("wiki")
+# Create an MCP server instance with an identifier ("webpage")
+mcp = FastMCP("webpage")
 
 @mcp.tool()
 def extract_webpage(url: str) -> str:
