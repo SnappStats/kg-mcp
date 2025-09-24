@@ -20,6 +20,8 @@ async def extract_webpage(url: str, ctx: Context) -> str:
     Usage:
         extract_webpage("https://en.wikipedia.org/wiki/Gemini_(chatbot)")
     """
+    await ctx.info(f"Extracting content from URL: {url}")
+    await ctx.report_progress(progress=10)
     try:
         if not url.startswith("http"):
             raise ValueError("URL must begin with http or https protocol.")
