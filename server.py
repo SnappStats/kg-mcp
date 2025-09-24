@@ -6,15 +6,7 @@ from requests.exceptions import RequestException
 from bs4 import BeautifulSoup
 from html2text import html2text
 
-from starlette.applications import Starlette
-from starlette.requests import Request
-from starlette.routing import Route, Mount
-
 from fastmcp import FastMCP, Context
-#from mcp.server.fastmcp import FastMCP, Context
-#from mcp.shared.exceptions import McpError
-#from mcp.types import ErrorData, INTERNAL_ERROR, INVALID_PARAMS
-#from mcp.server.sse import SseServerTransport
 
 # Create an MCP server instance with an identifier ("webpage")
 mcp = FastMCP("webpage")
@@ -29,31 +21,19 @@ async def extract_webpage(url: str, ctx: Context) -> str:
         extract_webpage("https://en.wikipedia.org/wiki/Gemini_(chatbot)")
     """
     try:
-        await ctx.info('asdf')
-        await asyncio.sleep(10)
-        await ctx.report_progress(progress=0.5)
         if not url.startswith("http"):
             raise ValueError("URL must begin with http or https protocol.")
 
         response = requests.get(url, timeout=8)
         if response.status_code != 200:
-            raise McpError(
-                ErrorData(
-                    code=INTERNAL_ERROR,
-                    message=f"Unable to access the article. Server returned status: {response.status_code}"
-                )
-            )
+            return f'Error: Unable to access the article. Server returned status: {str(response.status_code)}'
+
         soup = BeautifulSoup(response.text, "html.parser")
         content_div = soup.find("body")
         if not content_div:
-            raise McpError(
-                ErrorData(
-                    code=INVALID_PARAMS,
-                    message="The main article content section was not found at the specified URL."
-                )
-            )
+            return 'Error: Unable to find the main content section in the webpage.'
         markdown_text = html2text(str(content_div))
         return markdown_text
 
     except Exception as e:
-        raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"An unexpected error occurred: {str(e)}")) from e
+        return f"An unexpected error occurred: {str(e)}"
