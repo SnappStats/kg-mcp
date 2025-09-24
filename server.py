@@ -10,10 +10,11 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.routing import Route, Mount
 
-from mcp.server.fastmcp import FastMCP, Context
-from mcp.shared.exceptions import McpError
-from mcp.types import ErrorData, INTERNAL_ERROR, INVALID_PARAMS
-from mcp.server.sse import SseServerTransport
+from fastmcp import FastMCP, Context
+#from mcp.server.fastmcp import FastMCP, Context
+#from mcp.shared.exceptions import McpError
+#from mcp.types import ErrorData, INTERNAL_ERROR, INVALID_PARAMS
+#from mcp.server.sse import SseServerTransport
 
 # Create an MCP server instance with an identifier ("webpage")
 mcp = FastMCP("webpage")
@@ -28,6 +29,9 @@ async def extract_webpage(url: str, ctx: Context) -> str:
         extract_webpage("https://en.wikipedia.org/wiki/Gemini_(chatbot)")
     """
     try:
+        await ctx.info('asdf')
+        await asyncio.sleep(10)
+        await ctx.report_progress(progress=0.5)
         if not url.startswith("http"):
             raise ValueError("URL must begin with http or https protocol.")
 
@@ -53,22 +57,3 @@ async def extract_webpage(url: str, ctx: Context) -> str:
 
     except Exception as e:
         raise McpError(ErrorData(code=INTERNAL_ERROR, message=f"An unexpected error occurred: {str(e)}")) from e
-
-sse = SseServerTransport("/messages/")
-
-async def handle_sse(request: Request) -> None:
-    _server = mcp._mcp_server
-    async with sse.connect_sse(
-        request.scope,
-        request.receive,
-        request._send,
-    ) as (reader, writer):
-        await _server.run(reader, writer, _server.create_initialization_options())
-
-app = Starlette(
-    debug=True,
-    routes=[
-        Route("/sse", endpoint=handle_sse),
-        Mount("/messages/", app=sse.handle_post_message),
-    ],
-)
