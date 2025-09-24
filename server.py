@@ -2,7 +2,6 @@
 
 import asyncio
 import requests
-from requests.exceptions import RequestException
 from bs4 import BeautifulSoup
 from html2text import html2text
 
