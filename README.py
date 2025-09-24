@@ -7,5 +7,5 @@ https://webpage-mcp-762632998010.us-central1.run.app
 
 From the command line, run:
 ```bash
-uv run server.py
+uv run uvicorn server:app --port 8001
 ```

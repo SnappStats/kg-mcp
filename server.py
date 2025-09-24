@@ -1,16 +1,16 @@
 # File server.py
 
+import asyncio
 import requests
 from requests.exceptions import RequestException
 from bs4 import BeautifulSoup
 from html2text import html2text
 
-import uvicorn
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.routing import Route, Mount
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 from mcp.shared.exceptions import McpError
 from mcp.types import ErrorData, INTERNAL_ERROR, INVALID_PARAMS
 from mcp.server.sse import SseServerTransport
@@ -19,7 +19,7 @@ from mcp.server.sse import SseServerTransport
 mcp = FastMCP("webpage")
 
 @mcp.tool()
-def extract_webpage(url: str) -> str:
+async def extract_webpage(url: str, ctx: Context) -> str:
     """
     Retrieves the contents of a given URL, extracting
     the main content and converting it to Markdown format.
@@ -72,6 +72,3 @@ app = Starlette(
         Mount("/messages/", app=sse.handle_post_message),
     ],
 )
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8001)
