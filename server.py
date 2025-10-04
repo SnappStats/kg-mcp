@@ -16,6 +16,8 @@ async def extract_webpage(url: str, ctx: Context) -> str:
     Retrieves the contents of a given URL, extracting
     the main content and converting it to Markdown format.
 
+    Args:
+        url (str): A provided url
     Usage:
         extract_webpage("https://en.wikipedia.org/wiki/Gemini_(chatbot)")
     """
