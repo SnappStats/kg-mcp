@@ -33,7 +33,7 @@ steps:
     '--image', 'us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/kg-mcp',
     '--region', 'us-central1',
     '--platform', 'managed',
-    '--memory', '2Gi',
+    '--memory', '4Gi',
     '--min-instances', '1',
     '--allow-unauthenticated',
     '--env-vars-file', '.env.yaml',
