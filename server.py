@@ -1,42 +1,57 @@
-# File server.py
-
 import asyncio
-import requests
-from bs4 import BeautifulSoup
-from html2text import html2text
+import threading
+import os
+from dotenv import load_dotenv
 
 from fastmcp import FastMCP, Context
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.genai import types
+
+from agent import agent
+
+APP_NAME = 'kg'
+
+session_service = InMemorySessionService()
 
 # Create an MCP server instance with an identifier ("webpage")
-mcp = FastMCP("webpage")
+mcp = FastMCP("knowledge_graph")
+
+# Load environment variables from .env file in root directory
+load_dotenv()
+
+async def _curate_knowledge(user_id: str, query: str):
+    session = await session_service.create_session(app_name=APP_NAME, user_id=user_id)
+
+    runner = Runner(
+        agent=agent,
+        app_name=APP_NAME,
+        session_service=session_service
+    )
+
+    user_content = types.Content(role='user', parts=[types.Part(text=query)])
+    qwer = runner.run_async(user_id=user_id, session_id=session.id, new_message=user_content)
+
+    # Need this line.... Is there a good replacement?
+    async for event in qwer:
+        pass
+
+def _start_async_loop(**kwargs):
+    asyncio.run(_curate_knowledge(**kwargs))
 
 @mcp.tool()
-async def extract_webpage(url: str, ctx: Context) -> str:
-    """
-    Retrieves the contents of a given URL, extracting
-    the main content and converting it to Markdown format.
+async def curate_knowledge(user_id: str, query: str, ctx: Context):
+    '''Records any new or updated knowledge.
 
-    Args:
-        url (str): A provided url
-    Usage:
-        extract_webpage("https://en.wikipedia.org/wiki/Gemini_(chatbot)")
-    """
-    await ctx.info(f"Extracting content from URL: {url}")
-    await ctx.report_progress(progress=10)
-    try:
-        if not url.startswith("http"):
-            raise ValueError("URL must begin with http or https protocol.")
+    user_id (str): The ID of the user.
+    query (str): A snippet of text or a document that contains potentially new or updated knowledge.
+    '''
+    t = threading.Thread(
+        target=_start_async_loop,
+        name="BackgroundWorker",
+        kwargs={'user_id': user_id, 'query': query},
+        daemon=False
+    )
+    t.start()
 
-        response = requests.get(url, timeout=8)
-        if response.status_code != 200:
-            return f'Error: Unable to access the article. Server returned status: {str(response.status_code)}'
-
-        soup = BeautifulSoup(response.text, "html.parser")
-        content_div = soup.find("body")
-        if not content_div:
-            return 'Error: Unable to find the main content section in the webpage.'
-        markdown_text = html2text(str(content_div))
-        return markdown_text
-
-    except Exception as e:
-        return f"An unexpected error occurred: {str(e)}"
+    return 'This is being taken care of.'
