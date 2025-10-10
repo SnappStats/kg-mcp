@@ -1,7 +1,7 @@
 ## Deployed
 
 The MCP server is deployed at:
-https://webpage-mcp-762632998010.us-central1.run.app
+https://kg-mcp-762632998010.us-central1.run.app
 
 ## Run locally
 

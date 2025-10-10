@@ -14,7 +14,6 @@ APP_NAME = 'kg'
 
 session_service = InMemorySessionService()
 
-# Create an MCP server instance with an identifier ("webpage")
 mcp = FastMCP("knowledge_graph")
 
 # Load environment variables from .env file in root directory
