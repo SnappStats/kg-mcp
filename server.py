@@ -44,7 +44,7 @@ def _start_async_loop(**kwargs):
     asyncio.run(_curate_knowledge(**kwargs))
 
 @mcp.tool()
-async def curate_knowledge(user_id: str, query: str):
+async def curate_knowledge(user_id: str, query: str) -> str:
     '''Records any new or updated knowledge.
 
     user_id (str): The ID of the user.
@@ -60,8 +60,8 @@ async def curate_knowledge(user_id: str, query: str):
 
     return 'This is being taken care of.'
 
-#@mcp.tool()
-async def generate_scout_report(user_id: str, player_name: str):
+@mcp.tool()
+async def generate_scout_report(user_id: str, player_name: str) -> str:
     '''Generates a detailed scout report for a given player.
 
     user_id (str): The ID of the user making the request.
