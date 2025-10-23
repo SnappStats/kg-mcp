@@ -15,10 +15,6 @@ from opentelemetry.sdk.trace import TracerProvider
 
 from knowledge_curation_agent import agent as knowledge_curation_agent
 from scout_report_agent import agent as scout_report_agent
-from subagents.fetch_knowledge_agent.tools import (
-        _get_relevant_entities_for_phrases,
-        _get_knowledge_subgraph,
-        _fetch_knowledge_graph)
 
 # Load environment variables from .env file in root directory
 load_dotenv()
@@ -79,12 +75,6 @@ async def generate_scout_report(user_id: str, player_name: str) -> str:
     user_id (str): The ID of the user making the request.
     player_name (str): The name of the player for whom the scout report is to be generated.
     '''
-    g = _fetch_knowledge_graph(graph_id=user_id)
-    relevant_entity_ids = _get_relevant_entities_for_phrases(
-            phrases=[player_name], entities=g['entities'])
-    relevant_knowledge = _get_knowledge_subgraph(
-            entity_ids=relevant_entity_ids, graph=g, num_hops=2)
-
     session = await session_service.create_session(app_name=APP_NAME, user_id=user_id)
     runner = Runner(
         agent=scout_report_agent,
@@ -93,11 +83,11 @@ async def generate_scout_report(user_id: str, player_name: str) -> str:
     )
     user_content = types.Content(
         role='user',
-        parts=[types.Part(text=f'Generate a detailed scout report {player_name} using this data: {relevant_knowledge}.')]
+        parts=[types.Part(text=f'Generate a detailed scout report for {player_name}.')]
     )
     qwer = runner.run_async(user_id=user_id, session_id=session.id, new_message=user_content)
     report = ""
     async for event in qwer:
         if event.content:
-            report += event.content.parts[0].text
+            report += event.content.parts[0].text or ''
     return report
