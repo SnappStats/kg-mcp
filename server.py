@@ -8,6 +8,11 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
+from opentelemetry import trace
+from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
+from opentelemetry.sdk.trace import export
+from opentelemetry.sdk.trace import TracerProvider
+
 from knowledge_curation_agent import agent as knowledge_curation_agent
 from scout_report_agent import agent as scout_report_agent
 from subagents.fetch_knowledge_agent.tools import (
@@ -15,14 +20,21 @@ from subagents.fetch_knowledge_agent.tools import (
         _get_knowledge_subgraph,
         _fetch_knowledge_graph)
 
+# Load environment variables from .env file in root directory
+load_dotenv()
+
+provider = TracerProvider()
+processor = export.BatchSpanProcessor(
+    CloudTraceSpanExporter(project_id=os.environ['GOOGLE_CLOUD_PROJECT'])
+)
+provider.add_span_processor(processor)
+trace.set_tracer_provider(provider)
+
 APP_NAME = 'kg'
 
 session_service = InMemorySessionService()
 
 mcp = FastMCP("knowledge_graph")
-
-# Load environment variables from .env file in root directory
-load_dotenv()
 
 async def _curate_knowledge(user_id: str, query: str):
     session = await session_service.create_session(app_name=APP_NAME, user_id=user_id)
