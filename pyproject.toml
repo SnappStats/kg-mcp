@@ -15,4 +15,5 @@ dependencies = [
     "thefuzz==0.22.1",
     "python-Levenshtein==0.25.1",
     "floggit>=0.0.19",
+    "requests>=2.32.5",
 ]

@@ -1,8 +1,8 @@
 import asyncio
 from floggit import flog
 import dotenv
-import random
 import os
+import requests
 
 from google.adk.agents import Agent
 from google.adk.runners import Runner
@@ -15,30 +15,17 @@ from google.genai import types
 from google.adk.tools import google_search
 from google.adk.tools.agent_tool import AgentTool
 
-from subagents.fetch_knowledge_agent.tools import _fetch_knowledge_graph, _get_knowledge_subgraph
-
 dotenv.load_dotenv()
 session_service = InMemorySessionService()
 APP_NAME = 'kaybee_agent'
 
 
 @flog
-def get_random_entity(tool_context: ToolContext):
+def get_random_entity(tool_context: ToolContext) -> dict:
     user_id = tool_context._invocation_context.user_id
-    g = _fetch_knowledge_graph(graph_id=user_id)
-    entity_id = random.choice(list(g['entities'].keys()))
-    entity = g['entities'][entity_id]
-    nbhd = _get_knowledge_subgraph(
-            entity_ids={entity_id}, graph=g, num_hops=1)
-
-    entity_and_nbhd = {
-        'entity': entity,
-        'entity_neighborhood': nbhd
-    }
-
-    print(entity_and_nbhd)
-
-    return entity_and_nbhd
+    url = os.environ['KG_URL'] + '/random_neighborhood'
+    r = requests.get(url, params={'graph_id': user_id})
+    return r.json()
 
 
 search_agent = Agent(
@@ -113,4 +100,4 @@ if __name__ == "__main__":
     import time
     while True:
         asyncio.run(call_agent(user_id='116034988107995783513'))
-        time.sleep(600)
+        time.sleep(90)

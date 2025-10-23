@@ -2322,6 +2322,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "python-levenshtein" },
+    { name = "requests" },
     { name = "thefuzz" },
 ]
 
@@ -2336,6 +2337,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "python-dotenv", specifier = "==1.1.0" },
     { name = "python-levenshtein", specifier = "==0.25.1" },
+    { name = "requests", specifier = ">=2.32.5" },
     { name = "thefuzz", specifier = "==0.22.1" },
 ]
 
