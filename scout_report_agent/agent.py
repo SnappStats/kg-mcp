@@ -9,7 +9,7 @@ from google.adk.tools import google_search
 from google.adk.planners import BuiltInPlanner
 from google.genai import types
 
-from scout_report_schema import ScoutReport
+from .scout_report_schema import ScoutReport
 
 
 search_agent = Agent(
