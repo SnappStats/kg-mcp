@@ -1,38 +1,82 @@
-"""
-Fast Scout Report Service - Direct Gemini API call with KG context and grounding
-"""
-import os
 import json
+import os
+import re
+from typing import Any, Dict
+
 import requests
-from typing import Dict, Any
-from scout_report_agent.scout_report_schema import ScoutReport, Source
+
 from scout_report_agent.gemini_rest_service import get_gemini_rest_service
+from scout_report_agent.scout_report_schema import ScoutReport, Source
 
 
 def search_knowledge_graph(user_id: str, player_name: str) -> dict:
-    """Search the knowledge graph for existing player information."""
     url = os.environ['KG_URL'] + '/search'
     response = requests.get(url, params={'graph_id': user_id, 'query': player_name})
     return response.json()
 
 
+def parse_labeled_text(text: str) -> Dict[str, Any]:
+    result = {}
+    for line in text.strip().split('\n'):
+        line = line.strip()
+        if not line or ':' not in line:
+            continue
+        field_path, value = line.split(':', 1)
+        field_path = field_path.strip()
+        value = value.strip()
+        if not value or value.lower() in ['<value or leave blank>', '<value or empty string>', '<value>']:
+            value = ""
+        if '.' in field_path:
+            parts = field_path.split('.')
+            current = result
+            for part in parts[:-1]:
+                if part not in current:
+                    current[part] = {}
+                current = current[part]
+            current[parts[-1]] = value
+        else:
+            result[field_path] = value
+    return result
+
+
+def auto_insert_citations(response_text: str, response: Dict[str, Any]) -> str:
+    try:
+        candidates = response.get('candidates', [])
+        if not candidates:
+            return response_text
+        grounding_metadata = candidates[0].get('groundingMetadata', {})
+        grounding_supports = grounding_metadata.get('groundingSupports', [])
+        if not grounding_supports:
+            return response_text
+        sorted_supports = sorted(grounding_supports, key=lambda x: x['segment']['startIndex'], reverse=True)
+        result = response_text
+        for support in sorted_supports:
+            segment = support['segment']
+            chunk_indices = support.get('groundingChunkIndices', [])
+            if not chunk_indices:
+                continue
+            citation_numbers = [str(idx + 1) for idx in chunk_indices]
+            citation = f" [{','.join(citation_numbers)}]"
+            end_index = segment['endIndex']
+            result = result[:end_index] + citation + result[end_index:]
+        return result
+    except Exception as e:
+        print(f"Warning: Failed to auto-insert citations: {e}")
+        return response_text
+
+
 def extract_sources_from_grounding(response: Dict[str, Any]) -> list[Source]:
-    """Extract citation sources from grounding metadata."""
     try:
         sources = []
         candidates = response.get('candidates', [])
         if not candidates:
             return sources
-
         grounding_metadata = candidates[0].get('groundingMetadata', {})
         chunks = grounding_metadata.get('groundingChunks', [])
-
         for idx, chunk in enumerate(chunks):
             web = chunk.get('web', {})
             title = web.get('title', 'Unknown Source')
             uri = web.get('uri', 'No URL')
-
-            # Try to resolve redirects
             if uri and 'vertexaisearch.cloud.google.com/grounding-api-redirect' in uri:
                 try:
                     response = requests.head(uri, allow_redirects=True, timeout=3)
@@ -41,8 +85,6 @@ def extract_sources_from_grounding(response: Dict[str, Any]) -> list[Source]:
                         uri = actual_url
                 except Exception:
                     pass
-
-            # Clean title
             clean_title = title[:100]
             if '.' in clean_title and len(clean_title.split()) == 1:
                 clean_title = clean_title.lower().replace('www.', '')
@@ -52,189 +94,325 @@ def extract_sources_from_grounding(response: Dict[str, Any]) -> list[Source]:
             elif ' | ' in clean_title:
                 parts = clean_title.split(' | ')
                 clean_title = parts[-1].strip()
-
             sources.append(Source(
                 number=idx + 1,
                 title=clean_title,
                 url=uri
             ))
-
         return sources
     except Exception:
         return []
 
 
 def generate_scout_report(user_id: str, player_name: str) -> ScoutReport:
-    """
-    Generate a comprehensive scout report using KG context + web search grounding.
-
-    Args:
-        user_id: User ID for KG lookup
-        player_name: Name of the player
-
-    Returns:
-        ScoutReport object with all fields populated and citations
-    """
-    # 1. Get KG data
     kg_data = search_knowledge_graph(user_id, player_name)
-
-    # 2. Build comprehensive prompt with KG context
     prompt = f"""
-Generate a comprehensive scout report for {player_name}.
+    Generate a comprehensive scout report for {player_name}.
 
-**Existing Knowledge Graph Data:**
-{json.dumps(kg_data, indent=2)}
+    **Existing Knowledge Graph Data:**
+    {json.dumps(kg_data, indent=2)}
 
-Use the knowledge graph data as a baseline reference, but perform web searches to validate, update, and fill in missing information.
+    Use the knowledge graph data as baseline reference. Validate and fill gaps with targeted web searches.
 
-**CRITICAL INSTRUCTIONS:**
-* Use web search to find current information from credible sources
-* **ALL data points MUST have sources** - if KG data lacks sources, validate via web search and cite the web source
-* **VALIDATE** the player's current/final high school - some sources list training academies
-* **CHECK FOR TRANSFERS** - search if the player changed high schools during varsity career
-* Prioritize reputable sources (247Sports, On3, ESPN, Rivals, MaxPreps, official school sites, etc.)
-* Include citation numbers [1], [2], etc. for ALL facts throughout the report
+    **SEARCH STRATEGY:**
+    1. Start with 247Sports/On3 player profile pages (most comprehensive single sources)
+    2. Cross-reference MaxPreps for stats
+    3. Check player's Twitter/Instagram for self-reported info
+    4. Use local news only for unique stories/quotes
 
-**DATA TO COLLECT (must match schema exactly):**
+    **CRITICAL INSTRUCTIONS:**
+    * Be COMPREHENSIVE but EFFICIENT - prioritize high-signal sources
+    * **VALIDATE** current/final high school (watch for IMG Academy, Bishop Gorman transfers)
+    * **CHECK FOR TRANSFERS** if you see conflicting school information
+    * **CITATIONS**: Auto-added from grounding - just write facts naturally
 
-**QUICK ACCESS FIELDS (most recent from credible sources):**
-- player_name: Full name
-- position: Position(s) played (e.g., "QB", "WR")
-- height: Most recent height from credible source (consider: major recruiting services like 247Sports/On3/ESPN/Rivals, official school athletics sites, verified combine/camp measurements). Use your judgment on source credibility. Format: "6'4\""
-- weight: Most recent weight from credible source using same credibility criteria. Format: "219 lbs"
-- school_name: Current/final high school in format "School Name (City, State)"
-- location: City, State
-- graduation_class: High school graduation year (e.g., "2025")
-- gpa: Most recent GPA from credible source if available - FORMAT: just the number like "3.8" (or null if unavailable). Do NOT include school or other context here - that goes in intangibles.academic_profile
-- twitter_handle: @username format (or null if not found)
-- previous_schools: Previous high schools with years if transferred. FORMAT: "St. John's HS (2020-2021) | Transfer to IMG Academy (2022)". Empty string "" if no transfers
+    ---
 
-**executive_summary:** Brief summary of player profile, strengths, and potential
+    ## QUICK ACCESS FIELDS
 
-**physical_profile (historical tracking with ALL sources):**
-- measurements: ALL height/weight measurements from ALL sources with dates. Example: "Height: 6'4\\" (Texas Athletics, 2025), 6'3.5\\" (On3, 2022), 6'3\\" (HS, 2021). Weight: 219 lbs (Texas, 2025), 215 lbs (247Sports, 2022)"
-- athletic_testing: Weight room stats, track times, combine results, camp measurements with sources
-- physical_development: Physical growth and development notes year-to-year
+    **Sources: 247Sports, On3, ESPN Recruiting, Rivals (pick best 1-2)**
 
-**recruiting_profile:**
-- star_ratings: Star ratings from all services with rankings, formatted as single string. Example: "247Sports: 5-star, No. 1 QB | On3: 5-star | ESPN: 4-star, No. 2 QB"
-- scholarship_offers: All known college offers as comma-separated string. Example: "Texas, Georgia, Alabama, LSU, Ohio State"
-- latest_offer: Most recent offer with school and date if available
-- visits: Official and unofficial visits with dates
-- school_interest: Schools/programs showing reported interest
-- self_reported_offers: Offers and commitments reported via player's social media
+    - player_name: Full name
+    - position: Position(s) - e.g., "QB", "WR/DB"
+    - height: Most recent from major recruiting service. Format: "6'4\""
+    - weight: Most recent from major recruiting service. Format: "219 lbs"
+    - school_name: "School Name (City, State)"
+    - location: "City, State"
+    - graduation_class: "2025"
+    - gpa: Just number "3.8" or null (detail goes in academic_profile)
+    - twitter_handle: "@username" or null
+    - previous_schools: "St. John's HS (2020-2021), IMG Academy (2022)" or ""
 
-**team_profile:**
-- high_school_team: Team name (or null)
-- coach: Coach name (or null)
-- conference: Conference/league (or null)
-- recruitment_breakdown: Information about teammates recruited (division, star ratings, player names) (or null)
+    ---
 
-**statistics:**
-- season_stats: Year-by-year breakdown with stats and citations. Example: "2022 Junior: 2,500 yards, 25 TDs [10] | 2023 Senior: 3,000 yards, 30 TDs [15]". If transferred, specify school for each year
-- team_records: Team W-L records by year with citations. Example: "2022: 10-2, State Semifinals [10] | 2023: 12-1, State Champions [15]"
-- competition_level: State classification, strength of region/schedule, notable opponents and teammates with citations
-- key_games_outcomes: Key game performances with years and citations (or null). Example: "Championship Game (2023): 4 TDs, 300 yards, Win [12] | vs #1 Ranked Team (2023): 2 TDs, Loss [15]"
+    ## EXECUTIVE SUMMARY
+    Brief overview of player profile, strengths, potential (2-3 sentences)
 
-**intangibles:**
-- character_leadership: Character traits, work ethic, leadership qualities from articles/interviews
-- twitter_review: Analysis of X/Twitter activity - recruiting news, character indicators, engagement
-- academic_profile: Full academic history with GPA over time, academic awards, AP/honors classes, school academic reputation. Example: "GPA: 3.8 (Senior, 2023), 3.6 (Junior, 2022). Honors: AP Scholar, National Honor Society. School: Top-ranked prep school."
-- media_coverage: Key insights and narratives from local news, beat writers, media coverage
+    ---
 
-**rankings_accolades:**
-- accolades: Accolades with years and citations. Example: "All-State (2023) [10] | All-American (2023) [12] | MaxPreps National Freshman of Year (2020) [5]"
-- source_rankings: Rankings from all sources. Example: "247Sports: 5-star, No. 1 QB | On3: 5-star | ESPN: 4-star, No. 2 nationally"
+    ## PHYSICAL PROFILE
 
-**conference_awards:**
-- Conference awards with years and citations. Example: "First Team All-Conference (2023) [10] | Conference Defensive Player of Year (2023) [12]"
+    **measurements**
+    *Sources: 247Sports Composite, On3, official college roster (if committed), 1-2 camp measurements*
 
-**offers_commits:**
-- Scholarship offers and commitments with dates and citations. Example: "Offer: USC (Jan 2023) [5] | Committed: Ohio State (June 2023) [8] | Offer: Alabama (March 2023) [6]"
+    Track growth over time. Example format:
+    "Height: 6'4\" (Texas Athletics, 2025), 6'3.5\" (247Sports, 2024), 6'3\" (HS, 2022). Weight: 219 lbs (Texas, 2025), 215 lbs (247Sports, 2024), 205 lbs (HS, 2022)"
 
-**athlete_characteristics:**
-- Athletic attributes with citations. Example: "Elite speed [10] | Strong arm [12] | High football IQ [15] | Natural leader [20]"
+    **athletic_testing**
+    *Sources: The Opening Finals, All-American Bowl measurements, 247Sports/On3 profiles, player Twitter*
 
-**perception:**
-- articles_beat_writers: Article links/summaries with dates and citations (or null). Example: "ESPN recruitment article (June 2023) [10] | Local Times leadership feature (Sept 2023) [15]"
-- highlight_reels: Note on where highlight reels can be found (e.g., Hudl link, YouTube channel) (or null)
+    Include: 40-yard dash, shuttle, vertical, broad jump, bench, squat, track times (if applicable). Example:
+    "40-yard dash: 4.48s (The Opening, 2024), Bench: 315 lbs, Squat: 450 lbs, Vertical: 38\""
 
-**external_links:**
-- hudl: URL link to Hudl profile (or null)
-- social_media: Social media handle or URL (or null)
-- red_flags: Any known behavioral, injury, or academic red flags or concerns (or null)
+    **physical_development**
+    *Sources: Year-over-year comparison from above sources*
 
-**OUTPUT RULES - READ CAREFULLY:**
-- Return ONLY valid JSON that matches the schema exactly
-- **CRITICAL**: ALL top-level and nested fields must be STRINGS or NESTED OBJECTS - NEVER dicts/arrays as field values!
+    Note: weight gain/loss, growth spurts, strength progression, injury history. Example:
+    "Added 15 lbs muscle junior to senior year. Grew 2\" sophomore to junior season."
 
-**EXAMPLES OF COMMON MISTAKES TO AVOID:**
-❌ WRONG: "conference_awards": {{"Conference awards": "..."}}  ← This is a dict object!
-✅ CORRECT: "conference_awards": "ACC Offensive Player of Week (Aug 2025) [2] | First Team All-Conference (2024) [5]"
+    ---
 
-❌ WRONG: "offers_commits": {{"Scholarship offers": "..."}}  ← This is a dict object!
-✅ CORRECT: "offers_commits": "Offer: USC (Jan 2023) [5] | Committed: Ohio State (June 2023) [8]"
+    ## RECRUITING PROFILE
 
-❌ WRONG: "athlete_characteristics": {{"Athletic attributes": "..."}}  ← This is a dict object!
-✅ CORRECT: "athlete_characteristics": "Elite speed [10] | Strong arm [12] | High IQ [15]"
+    **star_ratings**
+    *Sources: 247Sports Composite (primary), On3, ESPN, Rivals*
 
-❌ WRONG: "accolades": ["All-State", "All-American"]  ← This is an array!
-✅ CORRECT: "accolades": "All-State (2023) [10] | All-American (2023) [12]"
+    Get composite + individual ratings. Example:
+    "247Sports: 5-star, No. 1 QB, No. 1 overall | On3: 5-star, No. 2 QB | ESPN: 4-star, No. 2 QB | Rivals: 5-star | 247 Composite: 5-star, 0.9985"
 
-**KEY RULES:**
-- Use " | " to separate multiple items in a string
-- **ALWAYS include citations [1], [2] and years (2023) where applicable**
-- All string fields default to "" if empty (not null unless Optional)
-- Do NOT use markdown code blocks (```json) - return raw JSON only
-"""
+    **scholarship_offers**
+    *Sources: 247Sports Crystal Ball page, On3 Recruiting Profile, player Twitter*
 
-    # 3. Make single grounded API call WITHOUT schema (so grounding works)
+    List ALL offers as comma-separated. Don't need dates here.
+    "Texas, Georgia, Alabama, LSU, Ohio State, Michigan, USC, Oregon..."
+
+    **latest_offer**
+    *Source: 247Sports "Recent Activity" or On3 Timeline*
+
+    Most recent with date: "USC (October 15, 2024)" or "Alabama (October 2024)"
+
+    **visits**
+    *Source: 247Sports Visit Tracker, On3 Visits section*
+
+    "Official: Texas (June 14-16, 2024), Georgia (June 7-9, 2024) | Unofficial: Alabama (March 2024), LSU (Spring Game, April 2024)"
+
+    **school_interest**
+    *Source: 247Sports Crystal Ball, On3 Recruiting Prediction Machine (RPM)*
+
+    Top contenders and their pursuit level: "Texas (leader, 85% CB), Georgia (heavy pursuit), Alabama (consistent contact)"
+
+    **self_reported_offers**
+    *Source: Player's Twitter/Instagram*
+
+    Check for commitment announcements, offer graphics: "Announced commitment to Texas via Twitter (July 4, 2024). Posted Georgia offer graphic (May 2024)"
+
+    ---
+
+    ## TEAM PROFILE
+
+    **high_school_team**
+    *Source: MaxPreps team page, school athletics site*
+
+    Full team name: "Lake Travis Cavaliers"
+
+    **coach**
+    *Source: MaxPreps roster page, school athletics site*
+
+    "Head Coach Mike Smith"
+
+    **conference**
+    *Source: MaxPreps standings/schedule*
+
+    "District 25-6A" or "Trinity League"
+
+    **recruitment_breakdown**
+    *Source: 247Sports Team Commits page for that high school*
+
+    Search: "[high school name] 247sports". Note D1 teammates:
+    "5 teammates signed D1 (2024): RB John Doe (3-star, Texas Tech), OL Mike Jones (4-star, Oklahoma). Strong D1 pipeline."
+
+    ---
+
+    ## STATISTICS
+
+    **season_stats**
+    *Source: MaxPreps player profile (primary), school athletics site*
+
+    Year-by-year stats with grade level:
+    "2024 Senior: 3,845 pass yds, 42 TDs, 4 INTs, 68% comp | 2023 Junior: 2,912 yds, 28 TDs, 6 INTs | 2022 Soph: 1,856 yds, 18 TDs"
+
+    **team_records**
+    *Source: MaxPreps team page*
+
+    "2024: 13-1, State Champions | 2023: 11-2, State Semifinals | 2022: 9-3"
+
+    **competition_level**
+    *Source: MaxPreps (classification), state rankings site*
+
+    State classification, region strength: "Texas 6A Division I (highest). Faced 3 top-25 ranked teams. Trinity League (nation's toughest conference)."
+
+    **key_games_outcomes**
+    *Source: MaxPreps game logs*
+
+    Big performances: "State Championship (2024): 425 yds, 5 TDs, Win 45-42 | vs No. 1 Duncanville: 380 yds, 3 TDs, Loss 31-28"
+
+    ---
+
+    ## INTANGIBLES
+
+    **character_leadership**
+    *Source: 247Sports/On3/ESPN scouting reports and interviews, local news feature story*
+
+    Coach quotes, leadership roles, work ethic: "Described as 'exceptional leader' by coach. Team captain senior year. Known for film study habits. Volunteers at youth camps."
+
+    **twitter_review**
+    *Source: Player's Twitter/X directly*
+
+    Analyze: commitment post, offer graphics, training videos, character indicators:
+    "Active @PlayerHandle - posts workouts regularly. Announced commitment July 4 with family. Shares motivational content and faith posts."
+
+    **academic_profile**
+    *Source: 247Sports/On3 profile (GPA often listed), local news mentions, school honor roll*
+
+    GPA progression, honors: "GPA: 3.9 (247Sports, 2024), 3.8 (2023). Academic All-State (2024). National Honor Society. AP Scholar."
+
+    **media_coverage**
+    *Source: Google News search "[player_name] [city]", check 1-2 feature articles*
+
+    Key narratives: "Dallas Morning News profile highlighted leadership (Sept 2024). Local writer: 'most polished QB in state'. Praised for championship poise."
+
+    ---
+
+    ## RANKINGS & ACCOLADES
+
+    **accolades**
+    *Sources: 247Sports profile, MaxPreps awards section, state athletic association site*
+
+    ALL major honors:
+    "Under Armour All-American (2024), MaxPreps Junior All-American (2023), Gatorade State POY (2024), First Team All-State (2024, 2023), USA Today All-USA (2024), Mr. Football Texas (2024)"
+
+    **source_rankings**
+    *Sources: 247Sports Composite page, On3, ESPN, Rivals*
+
+    All major service rankings:
+    "247Sports: 5-star, 0.9998, No. 1 QB, No. 1 overall | On3: 5-star, 98.50, No. 2 QB | ESPN: 4-star, No. 2 QB | Rivals: 5-star, No. 1 QB | 247 Composite: 0.9987, No. 1 overall"
+
+    **conference_awards**
+    *Source: MaxPreps awards, local news*
+
+    "District 25-6A Offensive MVP (2024, 2023), First Team All-District (2024, 2023, 2022), Trinity League Offensive POY (2024)"
+
+    ---
+
+    ## OFFERS & COMMITS
+
+    **offers_commits**
+    *Sources: 247Sports Crystal Ball/Offers page, player Twitter timeline*
+
+    All offers with dates (when available) + commitment:
+    "Committed: Texas (July 4, 2024) | Offers: Georgia (June 2024), Alabama (May 2024), Ohio State (April 2024), LSU (March 2024) | Decommitted: Oklahoma (June 2024)"
+
+    ---
+
+    ## ATHLETE CHARACTERISTICS
+
+    **athlete_characteristics**
+    *Sources: 247Sports scouting report, On3 evaluation, ESPN/Rivals analysis*
+
+    Playing style, strengths, areas for improvement:
+    "Elite arm strength 60+ yard range. Exceptional pocket presence. High football IQ, advanced reads. Dual-threat, 4.6 forty. Natural leader. Quick release. Needs to improve deep ball accuracy."
+
+    ---
+
+    ## PERCEPTION
+
+    **articles_beat_writers**
+    *Source: Google News "[player_name] feature" - pick 2-3 best articles*
+
+    Key media coverage:
+    "ESPN feature on recruitment (Aug 2024): Family decision process. Dallas Morning News: 'Best QB prospect since Vince Young' (Sept 2024). 247Sports: Comparison to Patrick Mahomes (July 2024)."
+
+    **highlight_reels**
+    *Source: Search "[player_name] Hudl" or check MaxPreps media tab*
+
+    "Hudl profile: hudl.com/profile/12345678. MaxPreps highlights available. YouTube game film: youtube.com/@playerhandle"
+
+    ---
+
+    ## EXTERNAL LINKS
+
+    **hudl**: Search "[player_name] Hudl" → "https://www.hudl.com/profile/12345678" or null
+
+    **social_media**: "Twitter: @PlayerHandle, Instagram: @playerhandle" or null
+
+    **red_flags**: Be objective about injuries, discipline, academic concerns:
+    "Minor ankle injury (2 games missed junior year). No behavioral/academic concerns." or "No known red flags"
+
+    ---
+
+    **OUTPUT FORMAT:**
+    - Return valid JSON matching schema exactly
+    - Use natural language - clear, comprehensive facts
+    - Separate items with commas or bullets in strings
+    - Do NOT add citation numbers manually - auto-inserted by grounding
+    - Empty string fields: "" (not null unless Optional type)
+    - Do NOT use markdown code blocks - raw JSON only
+    """
+
     gemini_rest = get_gemini_rest_service()
-
     response = gemini_rest.make_ai_call(
         prompt=prompt,
-        model="gemini-2.5-flash",
+        model="gemini-2.5-pro",
         use_grounding=True,
-        temperature=0.3
-        # NO response_schema - it disables grounding!
+        temperature=0.1
     )
 
-    # 4. Parse response
     response_text = gemini_rest.extract_text_from_response(response)
+    response_text_with_citations = auto_insert_citations(response_text, response)
 
-    # Strip markdown code blocks if present (```json ... ```)
-    if response_text.startswith('```'):
-        lines = response_text.split('\n')
-        # Remove first line (```json) and last line (```)
-        response_text = '\n'.join(lines[1:-1])
+    if response_text_with_citations.startswith('```'):
+        lines = response_text_with_citations.split('\n')
+        response_text_with_citations = '\n'.join(lines[1:-1])
 
-    # Manually parse JSON from response
-    report_data = json.loads(response_text)
-
-    # Flatten any incorrectly nested dicts and convert None to empty strings (LLM sometimes ignores instructions)
-    def flatten_dicts(obj):
+    def flatten_and_fix(obj):
         if obj is None:
-            return ""  # Convert None to empty string for string fields
+            return ""
         elif isinstance(obj, dict):
-            # Check if this looks like a wrongly nested single-key dict
             if len(obj) == 1:
-                key, value = list(obj.items())[0]
-                # If the single value is a string, return it directly
+                _, value = list(obj.items())[0]
                 if isinstance(value, str):
                     return value
-            # Otherwise recurse into nested structure
-            return {k: flatten_dicts(v) for k, v in obj.items()}
+            return {k: flatten_and_fix(v) for k, v in obj.items()}
         elif isinstance(obj, list):
-            return [flatten_dicts(item) for item in obj]
+            return [flatten_and_fix(item) for item in obj]
         return obj
 
-    report_data = flatten_dicts(report_data)
+    try:
+        report_data = json.loads(response_text_with_citations)
+    except json.JSONDecodeError as e:
+        error_file = '/tmp/gemini_pro_json_error.json'
+        with open(error_file, 'w') as f:
+            f.write(response_text_with_citations)
+        print(f"JSON parse error: {e}")
+        print(f"Saved problematic JSON to {error_file}")
+        print(f"Context around error (line {e.lineno}):")
+        lines = response_text_with_citations.split('\n')
+        start = max(0, e.lineno - 3)
+        end = min(len(lines), e.lineno + 2)
+        for i in range(start, end):
+            marker = ">>> " if i == e.lineno - 1 else "    "
+            print(f"{marker}{i+1}: {lines[i]}")
+        print("\nAttempting to fix common JSON errors...")
+        fixed_json = re.sub(r',(\s*[}\]])', r'\1', response_text_with_citations)
+        try:
+            report_data = json.loads(fixed_json)
+            print("Successfully fixed JSON by removing trailing commas!")
+        except json.JSONDecodeError as e2:
+            print(f"Still failed after fixes: {e2}")
+            raise e
 
-    # 5. Extract sources from grounding metadata
+    report_data = flatten_and_fix(report_data)
     sources = extract_sources_from_grounding(response)
     report_data['sources'] = [s.model_dump() for s in sources]
-
-    # 6. Create ScoutReport object
     report = ScoutReport(**report_data)
-
     return report

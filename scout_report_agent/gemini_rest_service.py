@@ -55,24 +55,12 @@ class GeminiRestService:
     def make_ai_call(
         self,
         prompt: str,
-        model: str = "gemini-2.0-flash-exp",
+        model: str = "gemini-2.5-pro",
         use_grounding: bool = False,
         response_schema: Optional[Any] = None,
-        temperature: float = 0.7,
+        temperature: float = 0.1,
     ) -> Dict[str, Any]:
-        """
-        Make a REST API call to Gemini with optional grounding and structured output.
-
-        Args:
-            prompt: The prompt to send to the model
-            model: Model name (default: gemini-2.0-flash-exp)
-            use_grounding: Enable Google Search grounding for citations
-            response_schema: Pydantic model for structured output
-            temperature: Sampling temperature
-
-        Returns:
-            Dict with response including grounding metadata if enabled
-        """
+       
         url = (
             f"https://{self.location}-aiplatform.googleapis.com/v1beta1/"
             f"projects/{self.project_id}/locations/{self.location}/"
@@ -92,14 +80,14 @@ class GeminiRestService:
             }],
             "generationConfig": {
                 "temperature": temperature,
-                "maxOutputTokens": 8192,
+                "maxOutputTokens": 40000,
             }
         }
 
         # Add grounding if enabled
         if use_grounding:
             body["tools"] = [{
-                "google_search": {}
+                "googleSearch": {}
             }]
 
         # Add structured output schema if provided
@@ -110,7 +98,7 @@ class GeminiRestService:
             body["generationConfig"]["responseSchema"] = schema_dict
             body["generationConfig"]["responseMimeType"] = "application/json"
 
-        response = requests.post(url, headers=headers, json=body, timeout=120)
+        response = requests.post(url, headers=headers, json=body, timeout=300)
 
         if not response.ok:
             print(f"API Error Response: {response.text}")
@@ -120,7 +108,6 @@ class GeminiRestService:
         return response.json()
 
     def extract_text_from_response(self, response: Dict[str, Any]) -> str:
-        """Extract text content from Gemini response."""
         try:
             candidates = response.get('candidates', [])
             if not candidates:
