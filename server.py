@@ -14,7 +14,7 @@ from opentelemetry.sdk.trace import export
 from opentelemetry.sdk.trace import TracerProvider
 
 from knowledge_curation_agent import agent as knowledge_curation_agent
-from scout_report_agent import agent as scout_report_agent
+from scout_report_agent.agent import generate_scout_report
 
 # Load environment variables from .env file in root directory
 load_dotenv()
@@ -69,25 +69,14 @@ async def curate_knowledge(user_id: str, query: str) -> str:
     return 'This is being taken care of.'
 
 @mcp.tool()
-async def generate_scout_report(user_id: str, player_name: str) -> str:
+async def generate_scout_report_mcp(user_id: str, player_name: str) -> str:
     '''Generates a detailed scout report for a given player.
 
     user_id (str): The ID of the user making the request.
     player_name (str): The name of the player for whom the scout report is to be generated.
     '''
-    session = await session_service.create_session(app_name=APP_NAME, user_id=user_id)
-    runner = Runner(
-        agent=scout_report_agent,
-        app_name=APP_NAME,
-        session_service=session_service
-    )
-    user_content = types.Content(
-        role='user',
-        parts=[types.Part(text=f'Generate a detailed scout report for {player_name}.')]
-    )
-    qwer = runner.run_async(user_id=user_id, session_id=session.id, new_message=user_content)
-    report = ""
-    async for event in qwer:
-        if event.content:
-            report += event.content.parts[0].text or ''
-    return report
+    # Use fast direct API approach
+    report = generate_scout_report(user_id, player_name)
+
+    # Format as JSON string for MCP return
+    return report.model_dump_json(indent=2)
