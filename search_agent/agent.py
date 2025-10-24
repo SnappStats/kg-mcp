@@ -47,11 +47,11 @@ agent = Agent(
     tools=[
         search_knowledge_graph,
         AgentTool(agent=internet_search_agent),
-        #McpToolset(
-        #    connection_params=StreamableHTTPConnectionParams(
-        #        url="https://kg-mcp-785636189485.us-central1.run.app/mcp"
-        #    ),
-        #    tool_filter=['curate_knowledge'],
+        McpToolset(
+            connection_params=StreamableHTTPConnectionParams(
+                url=os.environ['KG_MCP_SERVER']#"https://kg-mcp-785636189485.us-central1.run.app/mcp"
+            ),
+            tool_filter=['curate_knowledge'],
         ),
     ],
     instruction=PROMPT,
