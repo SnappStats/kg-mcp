@@ -9,9 +9,9 @@ from scout_report_agent.gemini_rest_service import get_gemini_rest_service
 from scout_report_agent.scout_report_schema import ScoutReport, Source
 
 
-def search_knowledge_graph(user_id: str, player_name: str) -> dict:
+def search_knowledge_graph(graph_id: str, player_name: str) -> dict:
     url = os.environ['KG_URL'] + '/search'
-    response = requests.get(url, params={'graph_id': user_id, 'query': player_name})
+    response = requests.get(url, params={'graph_id': graph_id, 'query': player_name})
     return response.json()
 
 
@@ -104,8 +104,8 @@ def extract_sources_from_grounding(response: Dict[str, Any]) -> list[Source]:
         return []
 
 
-def generate_scout_report(user_id: str, player_name: str) -> ScoutReport:
-    kg_data = search_knowledge_graph(user_id, player_name)
+def generate_scout_report(graph_id: str, player_name: str) -> ScoutReport:
+    kg_data = search_knowledge_graph(graph_id, player_name)
     prompt = f"""
     Generate a comprehensive scout report for {player_name}.
 

@@ -14,6 +14,8 @@ from .utils import generate_random_string, remove_nonalphanumeric
 
 load_dotenv()
 
+GRAPH_ID = 'cf460c59-6b2e-42d3-b08d-b20ff54deb57'
+
 def _get_bucket():
     storage_client = storage.Client()
     bucket_name = os.environ.get("KNOWLEDGE_GRAPH_BUCKET")
@@ -155,7 +157,8 @@ def update_graph(callback_context: CallbackContext, llm_response: LlmResponse) -
                 user_id=callback_context._invocation_context.user_id)
 
         _update_knowledge_graph(
-                graph_id=callback_context._invocation_context.user_id,
+                #graph_id=callback_context._invocation_context.user_id,
+                graph_id=GRAPH_ID,
                 old_subgraph=existing_knowledge_subgraph,
                 new_subgraph=updated_knowledge_subgraph)
 

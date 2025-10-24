@@ -30,12 +30,13 @@ provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
 
 APP_NAME = 'kg'
+GRAPH_ID = 'cf460c59-6b2e-42d3-b08d-b20ff54deb57.json'
 
 session_service = InMemorySessionService()
 
 mcp = FastMCP("knowledge_graph")
 
-async def _curate_knowledge(user_id: str, query: str):
+async def _curate_knowledge(graph_id: str, user_id: str, query: str):
     session = await session_service.create_session(app_name=APP_NAME, user_id=user_id)
 
     runner = Runner(
@@ -43,6 +44,9 @@ async def _curate_knowledge(user_id: str, query: str):
         app_name=APP_NAME,
         session_service=session_service
     )
+
+    session.state['graph_id'] = graph_id
+    session.state['user_id'] = user_id
 
     user_content = types.Content(role='user', parts=[types.Part(text=query)])
     qwer = runner.run_async(user_id=user_id, session_id=session.id, new_message=user_content)
@@ -59,16 +63,15 @@ def _start_async_loop(**kwargs):
         description='This tool records knowledge in the knowledge base. It should be called whenever potentially new, relevant knowledge is encountered.'
 )
 async def curate_knowledge(
-        user_id: Annotated[str, "The ID of the user."],
         query: Annotated[str, "A snippet of text or a document that contains potentially new or updated knowledge."],
 ) -> str:
-    headers = get_http_headers()
-    print(f"Headers: {headers}")
+    graph_id = get_http_headers().get('x-graph-id', GRAPH_ID)
+    user_id = get_http_headers().get('x-author-id','anonymous')
 
     t = threading.Thread(
         target=_start_async_loop,
         name="BackgroundWorker",
-        kwargs={'user_id': user_id, 'query': query},
+        kwargs={'graph_id': graph_id, 'user_id': user_id, 'query': query},
         daemon=False
     )
     t.start()
@@ -80,13 +83,12 @@ async def curate_knowledge(
         description='This tool returns a detailed Scout Report for a given player. It should be called whenever the user solicits a Scout Report, or solicits information likely to be found in a Scout Report.'
 )
 async def scout_report(
-        user_id: Annotated[str, "The ID of the user making the request."],
-        player_name: Annotated[str, "The name of the player for whom the scout report is to be generated."]
+        player_name: Annotated[str, "The name of the player for whom a Scout Report is being requested."]
 ) -> str:
-    headers = get_http_headers()
-    print(f"Headers: {headers}")
+    graph_id = get_http_headers()['x-graph-id']
+    user_id = get_http_headers().get('x-author-id','anonymous')
     # Use fast direct API approach
-    report = generate_scout_report(user_id, player_name)
+    report = generate_scout_report(graph_id=graph_id, player_name=player_name)
 
     # Format as JSON string for MCP return
     return report.model_dump_json(indent=2)

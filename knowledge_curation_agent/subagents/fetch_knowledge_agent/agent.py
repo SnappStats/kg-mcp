@@ -24,10 +24,9 @@ def get_relevant_neighborhood(query: str, tool_context: ToolContext) -> dict:
     Returns:
         dict: The relevant knowledge graph data.
     '''
-
-    user_id = tool_context._invocation_context.user_id
+    graph_id = 'cf460c59-6b2e-42d3-b08d-b20ff54deb57'
     url = os.environ['KG_URL'] + '/search'
-    r = requests.get(url, params={'query': query, 'graph_id': user_id})
+    r = requests.get(url, params={'query': query, 'graph_id': graph_id})
     return r.json()
 
 
