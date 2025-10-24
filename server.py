@@ -13,6 +13,7 @@ from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
 from opentelemetry.sdk.trace import export
 from opentelemetry.sdk.trace import TracerProvider
 
+from search_agent import agent as search_agent
 from knowledge_curation_agent import agent as knowledge_curation_agent
 from scout_report_agent import agent as scout_report_agent
 
@@ -55,8 +56,11 @@ def _start_async_loop(**kwargs):
 async def curate_knowledge(user_id: str, query: str) -> str:
     '''Records any new or updated knowledge.
 
-    user_id (str): The ID of the user.
-    query (str): A snippet of text or a document that contains potentially new or updated knowledge.
+    Args:
+        user_id (str): The ID of the user.
+        query (str): A snippet of text or a document that contains potentially new or updated knowledge.
+    Returns:
+        str: Acknowledgment that the knowledge curation process has started.
     '''
     t = threading.Thread(
         target=_start_async_loop,
@@ -72,8 +76,12 @@ async def curate_knowledge(user_id: str, query: str) -> str:
 async def generate_scout_report(user_id: str, player_name: str) -> str:
     '''Generates a detailed scout report for a given player.
 
-    user_id (str): The ID of the user making the request.
-    player_name (str): The name of the player for whom the scout report is to be generated.
+    Args:
+        user_id (str): The ID of the user making the request.
+        player_name (str): The name of the player for whom the scout report is to be generated.
+
+    Returns:
+        str: A detailed scout report for the specified player.
     '''
     session = await session_service.create_session(app_name=APP_NAME, user_id=user_id)
     runner = Runner(
@@ -84,6 +92,34 @@ async def generate_scout_report(user_id: str, player_name: str) -> str:
     user_content = types.Content(
         role='user',
         parts=[types.Part(text=f'Generate a detailed scout report for {player_name}.')]
+    )
+    qwer = runner.run_async(user_id=user_id, session_id=session.id, new_message=user_content)
+    report = ""
+    async for event in qwer:
+        if event.content:
+            report += event.content.parts[0].text or ''
+    return report
+
+
+@mcp.tool()
+async def search(query: str, user_id: str) -> str:
+    '''Returns additional context in order to produce a well-formed response.
+
+    Args:
+        query (str): The user's input.
+        user_id (str): The ID of the user making the request.
+    Returns:
+        str: Additional context relevant to the user's query.
+    '''
+    session = await session_service.create_session(app_name=APP_NAME, user_id=user_id)
+    runner = Runner(
+        agent=search_agent,
+        app_name=APP_NAME,
+        session_service=session_service
+    )
+    user_content = types.Content(
+        role='user',
+        parts=[types.Part(text=query)]
     )
     qwer = runner.run_async(user_id=user_id, session_id=session.id, new_message=user_content)
     report = ""
