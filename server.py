@@ -2,8 +2,11 @@ import asyncio
 import threading
 import os
 from dotenv import load_dotenv
+from typing import Annotated
 
 from fastmcp import FastMCP, Context
+from fastmcp.server.dependencies import get_http_headers
+
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
@@ -51,13 +54,17 @@ async def _curate_knowledge(user_id: str, query: str):
 def _start_async_loop(**kwargs):
     asyncio.run(_curate_knowledge(**kwargs))
 
-@mcp.tool()
-async def curate_knowledge(user_id: str, query: str) -> str:
-    '''Records any new or updated knowledge.
+@mcp.tool(
+        name='curate_knowledge',
+        description='This tool records knowledge in the knowledge base. It should be called whenever potentially new, relevant knowledge is encountered.'
+)
+async def curate_knowledge(
+        user_id: Annotated[str, "The ID of the user."],
+        query: Annotated[str, "A snippet of text or a document that contains potentially new or updated knowledge."],
+) -> str:
+    headers = get_http_headers()
+    print(f"Headers: {headers}")
 
-    user_id (str): The ID of the user.
-    query (str): A snippet of text or a document that contains potentially new or updated knowledge.
-    '''
     t = threading.Thread(
         target=_start_async_loop,
         name="BackgroundWorker",
@@ -68,13 +75,16 @@ async def curate_knowledge(user_id: str, query: str) -> str:
 
     return 'This is being taken care of.'
 
-@mcp.tool()
-async def generate_scout_report_mcp(user_id: str, player_name: str) -> str:
-    '''Generates a detailed scout report for a given player.
-
-    user_id (str): The ID of the user making the request.
-    player_name (str): The name of the player for whom the scout report is to be generated.
-    '''
+@mcp.tool(
+        name='generate_scout_report',
+        description='This tool returns a detailed Scout Report for a given player. It should be called whenever the user solicits a Scout Report, or solicits information likely to be found in a Scout Report.'
+)
+async def scout_report(
+        user_id: Annotated[str, "The ID of the user making the request."],
+        player_name: Annotated[str, "The name of the player for whom the scout report is to be generated."]
+) -> str:
+    headers = get_http_headers()
+    print(f"Headers: {headers}")
     # Use fast direct API approach
     report = generate_scout_report(user_id, player_name)
 
