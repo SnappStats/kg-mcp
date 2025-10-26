@@ -1,6 +1,7 @@
 import asyncio
 import threading
 import os
+import requests
 from dotenv import load_dotenv
 from typing import Annotated
 
@@ -60,7 +61,7 @@ def _start_async_loop(**kwargs):
 
 @mcp.tool(
         name='curate_knowledge',
-        description='This tool records knowledge in the knowledge base. It should be called whenever potentially new, relevant knowledge is encountered.'
+        description='This tool records knowledge in the knowledge base. It should be called whenever potentially new, relevant knowledge (e.g. entities, their properties, and their inter-relationships) is encountered.'
 )
 async def curate_knowledge(
         query: Annotated[str, "A snippet of text or a document that contains potentially new or updated knowledge."],
@@ -92,3 +93,16 @@ async def scout_report(
 
     # Format as JSON string for MCP return
     return report.model_dump_json(indent=2)
+
+
+@mcp.tool(
+        name='search_knowledge_graph',
+        description='This tool returns knowledge from the knowledge graph of players, teams, schools, and so on.',
+)
+async def search_knowledge_graph(
+        query: Annotated[str, "A search query to find relevant knowledge in the knowledge graph."]
+) -> dict:
+    graph_id = get_http_headers()['x-graph-id']
+    url = os.environ['KG_URL'] + '/search'
+    r = requests.get(url, params={'query': query, 'graph_id': graph_id})
+    return r.json()
