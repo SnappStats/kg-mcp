@@ -31,7 +31,7 @@ steps:
     - '-c'
     - |
       curl -Ls --tlsv1.2 --proto "=https" --retry 3 https://cli.doppler.com/install.sh | sh
-      doppler secrets download --no-file --format env-no-quotes > /workspace/.env.cloud
+      doppler secrets download --no-file --format=yaml > /workspace/env.yaml
   secretEnv: ['DOPPLER_TOKEN']
   waitFor: ['Docker Push']
 
@@ -51,7 +51,7 @@ steps:
         --memory 4Gi \
         --min-instances 1 \
         --allow-unauthenticated \
-        --env-vars-file=/workspace/.env.cloud
+        --env-vars-file=/workspace/env.yaml
   waitFor: ['Fetch Doppler Secrets']
 
 # Specify the image to be pushed to Artifact Registry upon successful build.
