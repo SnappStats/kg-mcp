@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional
 from google.auth import default
 from google.auth.transport.requests import Request
 import requests
+from logger import logger
 
 
 class GeminiRestService:
@@ -101,7 +102,7 @@ class GeminiRestService:
         response = requests.post(url, headers=headers, json=body, timeout=300)
 
         if not response.ok:
-            print(f"API Error Response: {response.text}")
+            logger.error(f"google api error raised: {response.text}")
 
         response.raise_for_status()
 
