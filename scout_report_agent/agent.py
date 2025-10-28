@@ -3,6 +3,7 @@ import os
 import re
 from typing import Any, Dict
 from logger import logger
+from floggit import flog
 
 import requests
 
@@ -15,7 +16,7 @@ def search_knowledge_graph(graph_id: str, player_name: str) -> dict:
     response = requests.get(url, params={'graph_id': graph_id, 'query': player_name})
     return response.json()
 
-
+@flog
 def parse_labeled_text(text: str) -> Dict[str, Any]:
     result = {}
     for line in text.strip().split('\n'):
@@ -40,6 +41,7 @@ def parse_labeled_text(text: str) -> Dict[str, Any]:
     return result
 
 
+@flog
 def auto_insert_citations(response_text: str, response: Dict[str, Any]) -> str:
     try:
         candidates = response.get('candidates', [])
@@ -66,6 +68,7 @@ def auto_insert_citations(response_text: str, response: Dict[str, Any]) -> str:
         return response_text
 
 
+@flog
 def extract_sources_from_grounding(response: Dict[str, Any]) -> list[Source]:
     try:
         sources = []
@@ -105,6 +108,7 @@ def extract_sources_from_grounding(response: Dict[str, Any]) -> list[Source]:
         return []
 
 
+@flog
 def generate_scout_report(graph_id: str, player_name: str) -> ScoutReport:
     kg_data = search_knowledge_graph(graph_id, player_name)
     prompt = f"""
