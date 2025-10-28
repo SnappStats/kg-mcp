@@ -1,43 +1,39 @@
-"""
-Gemini REST API Service - Direct REST API calls to Google Gemini with grounding support
-"""
 import os
 import json
+import tempfile
+import requests
 from typing import Dict, Any, Optional
 from google.auth import default
 from google.auth.transport.requests import Request
-import requests
 from logger import logger
 
 
 class GeminiRestService:
-    """Service for making direct REST API calls to Google Gemini with grounding."""
-
     def __init__(self):
-        """Initialize Gemini REST service with credentials."""
+        if 'API_GOOGLE_SERVICE_ACCOUNT_CREDENTIALS' in os.environ:
+            creds_json = json.loads(os.environ['API_GOOGLE_SERVICE_ACCOUNT_CREDENTIALS'])
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                json.dump(creds_json, f)
+                os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = f.name
+
         self.project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
         self.location = os.environ.get('GOOGLE_CLOUD_LOCATION', 'us-central1')
-        # Request credentials with cloud-platform scope for Vertex AI
         self.credentials, _ = default(scopes=['https://www.googleapis.com/auth/cloud-platform'])
 
     def _get_access_token(self) -> str:
-        """Get fresh access token for API calls."""
         if not self.credentials.valid:
             self.credentials.refresh(Request())
         return self.credentials.token
 
     def _resolve_refs(self, schema: Dict[str, Any]) -> Dict[str, Any]:
-        """Resolve JSON Schema $refs - Gemini API doesn't support them."""
         if not isinstance(schema, dict):
             return schema
 
-        # Extract definitions
         defs = schema.pop('$defs', {})
 
         def resolve(obj):
             if isinstance(obj, dict):
                 if '$ref' in obj:
-                    # Resolve the reference
                     ref_path = obj['$ref'].split('/')
                     if ref_path[0] == '#' and ref_path[1] == '$defs':
                         def_name = ref_path[2]
@@ -56,12 +52,11 @@ class GeminiRestService:
     def make_ai_call(
         self,
         prompt: str,
-        model: str = "gemini-2.5-pro",
+        model: str = "gemini-2.5-flash",
         use_grounding: bool = False,
         response_schema: Optional[Any] = None,
         temperature: float = 0.1,
     ) -> Dict[str, Any]:
-       
         url = (
             f"https://{self.location}-aiplatform.googleapis.com/v1beta1/"
             f"projects/{self.project_id}/locations/{self.location}/"
@@ -73,7 +68,6 @@ class GeminiRestService:
             "Content-Type": "application/json",
         }
 
-        # Build request body
         body = {
             "contents": [{
                 "role": "user",
@@ -85,16 +79,13 @@ class GeminiRestService:
             }
         }
 
-        # Add grounding if enabled
         if use_grounding:
             body["tools"] = [{
                 "googleSearch": {}
             }]
 
-        # Add structured output schema if provided
         if response_schema:
             schema_dict = response_schema.model_json_schema()
-            # Resolve $refs - Gemini doesn't support them
             schema_dict = self._resolve_refs(schema_dict)
             body["generationConfig"]["responseSchema"] = schema_dict
             body["generationConfig"]["responseMimeType"] = "application/json"
@@ -128,7 +119,6 @@ _gemini_rest_service = None
 
 
 def get_gemini_rest_service() -> GeminiRestService:
-    """Get global Gemini REST service instance."""
     global _gemini_rest_service
     if _gemini_rest_service is None:
         _gemini_rest_service = GeminiRestService()

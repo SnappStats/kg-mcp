@@ -1,43 +1,28 @@
-import os
-import yaml
+import traceback
 from scout_report_agent.agent import generate_scout_report
 from scout_report_agent.scout_report_schema import ScoutReport
 
-# Load environment variables from .env.yaml
-with open('.env.yaml', 'r') as f:
-    env_vars = yaml.safe_load(f)
-    for key, value in env_vars.items():
-        os.environ[key] = str(value)
 
-
-def generate_report(player_name: str, user_id: str = "test_user_123"):
-    """Generate a scout report for a player using fast direct API."""
+def generate_report(player_name: str, graph_id: str = "test_graph"):
     print(f"Generating scout report for {player_name}...\n")
     print("=" * 80)
 
     try:
-        # Call fast service
-        report = generate_scout_report(user_id, player_name)
-
-        # Format and display
+        report = generate_scout_report(graph_id, player_name)
         formatted_report = format_scout_report(report)
         print(formatted_report)
         print("\n" + "=" * 80)
         return formatted_report
-
     except Exception as e:
         print(f"Error generating report: {e}")
-        import traceback
         traceback.print_exc()
         print("\n" + "=" * 80)
         return ""
 
 
 def format_scout_report(report: ScoutReport) -> str:
-    """Format the scout report with sources as citations."""
     output = []
 
-    # Header
     output.append(f"# SCOUT REPORT: {report.player_name}")
     output.append(f"**Position:** {report.position} | **Class:** {report.graduation_class}")
     output.append(f"**School:** {report.school_name} ({report.location})")
@@ -47,13 +32,11 @@ def format_scout_report(report: ScoutReport) -> str:
         output.append(f"**Previous Schools:** {report.previous_schools}")
     output.append("")
 
-    # Executive Summary
     if report.executive_summary:
         output.append("## Executive Summary")
         output.append(report.executive_summary)
         output.append("")
 
-    # Physical Profile
     if report.physical_profile.measurements or report.physical_profile.athletic_testing:
         output.append("## Physical & Athletic Profile")
         if report.physical_profile.measurements:
@@ -64,7 +47,6 @@ def format_scout_report(report: ScoutReport) -> str:
             output.append(f"**Development:** {report.physical_profile.physical_development}")
         output.append("")
 
-    # Recruiting Profile
     if any([report.recruiting_profile.star_ratings, report.recruiting_profile.scholarship_offers]):
         output.append("## Recruiting Profile")
         if report.recruiting_profile.star_ratings:
@@ -79,7 +61,6 @@ def format_scout_report(report: ScoutReport) -> str:
             output.append(f"**Interest:** {report.recruiting_profile.school_interest}")
         output.append("")
 
-    # Statistics & Performance
     if report.statistics.season_stats:
         output.append("## On-Field Performance")
         output.append(f"**Stats:**\n{report.statistics.season_stats}")
@@ -89,13 +70,11 @@ def format_scout_report(report: ScoutReport) -> str:
             output.append(f"**Competition:** {report.statistics.competition_level}")
         output.append("")
 
-    # Accolades
     if report.rankings_accolades.accolades:
         output.append("## Accolades")
         output.append(report.rankings_accolades.accolades)
         output.append("")
 
-    # Intangibles
     if any([report.intangibles.character_leadership, report.intangibles.academic_profile, report.intangibles.twitter_review]):
         output.append("## Intangibles")
         if report.intangibles.character_leadership:
@@ -106,7 +85,6 @@ def format_scout_report(report: ScoutReport) -> str:
             output.append(f"**Academics:** {report.intangibles.academic_profile}")
         output.append("")
 
-    # Sources
     if report.sources:
         output.append("## Sources")
         for source in report.sources:
@@ -117,14 +95,12 @@ def format_scout_report(report: ScoutReport) -> str:
 
 
 if __name__ == "__main__":
-    # Test with a player name
     player_name = input("Enter player name (or press Enter for 'Caleb Williams'): ").strip()
     if not player_name:
         player_name = "Caleb Williams"
 
     report = generate_report(player_name)
 
-    # Optionally save to file
     save = input("\nSave report to file? (y/n): ").strip().lower()
     if save == 'y':
         filename = f"scout_report_{player_name.replace(' ', '_')}.md"

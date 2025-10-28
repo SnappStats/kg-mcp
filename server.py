@@ -138,20 +138,20 @@ async def search_knowledge_graph(
 ) -> dict:
     with dd_tracer.trace("search_knowledge_graph") as span:
         graph_id = get_http_headers()['x-graph-id']
-        
+
         span.set_attribute("query", query)
         span.set_attribute("graph_id", graph_id)
-        span.set_attribute("kg_url", os.environ['KG_URL'])
-        
-        url = os.environ['KG_URL'] + '/search'
+        span.set_attribute("kg_url", os.environ['KG_MCP_SERVER_URL'])
+
+        url = os.environ['KG_MCP_SERVER_URL'] + '/search'
         r = requests.get(url, params={'query': query, 'graph_id': graph_id})
-        
+
         span.set_attribute("http_status_code", r.status_code)
         span.set_attribute("response_size", len(r.content))
-        
+
         if r.status_code == 200:
             span.add_event("Knowledge graph search successful")
         else:
             span.add_event("Knowledge graph search failed", {"status_code": r.status_code})
-            
+
         return r.json()

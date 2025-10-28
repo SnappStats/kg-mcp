@@ -1,3 +1,6 @@
+import os
+import json
+import tempfile
 from typing import Optional
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.agents import Agent
@@ -6,6 +9,12 @@ from google.genai import types
 
 from .schemas import KnowledgeGraph
 from .tools import update_graph
+
+if 'API_GOOGLE_SERVICE_ACCOUNT_CREDENTIALS' in os.environ:
+    creds_json = json.loads(os.environ['API_GOOGLE_SERVICE_ACCOUNT_CREDENTIALS'])
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        json.dump(creds_json, f)
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = f.name
 
 PROMPT = """
 You are a specialized agent that updates a knowledge graph with facts about the user and their world, for the purpose of carrying a conversation and answering questions.

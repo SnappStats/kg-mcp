@@ -12,8 +12,12 @@ from scout_report_agent.scout_report_schema import ScoutReport, Source
 
 
 def search_knowledge_graph(graph_id: str, player_name: str) -> dict:
-    url = os.environ['KG_URL'] + '/search'
+    url = os.environ['KG_MCP_SERVER_URL'] + '/search'
     response = requests.get(url, params={'graph_id': graph_id, 'query': player_name})
+    if response.status_code != 200:
+        return {'entities': {}, 'relationships': []}
+    if not response.text:
+        return {'entities': {}, 'relationships': []}
     return response.json()
 
 @flog
@@ -71,40 +75,77 @@ def auto_insert_citations(response_text: str, response: Dict[str, Any]) -> str:
 @flog
 def extract_sources_from_grounding(response: Dict[str, Any]) -> list[Source]:
     try:
+        import re
         sources = []
         candidates = response.get('candidates', [])
         if not candidates:
             return sources
         grounding_metadata = candidates[0].get('groundingMetadata', {})
+
+        # Try old format first (groundingChunks)
         chunks = grounding_metadata.get('groundingChunks', [])
-        for idx, chunk in enumerate(chunks):
-            web = chunk.get('web', {})
-            title = web.get('title', 'Unknown Source')
-            uri = web.get('uri', 'No URL')
-            if uri and 'vertexaisearch.cloud.google.com/grounding-api-redirect' in uri:
-                try:
-                    response = requests.head(uri, allow_redirects=True, timeout=3)
-                    actual_url = response.url
-                    if actual_url != uri:
-                        uri = actual_url
-                except Exception:
-                    pass
-            clean_title = title[:100]
-            if '.' in clean_title and len(clean_title.split()) == 1:
-                clean_title = clean_title.lower().replace('www.', '')
-            elif ' - ' in clean_title:
-                parts = clean_title.split(' - ')
-                clean_title = parts[-1].strip()
-            elif ' | ' in clean_title:
-                parts = clean_title.split(' | ')
-                clean_title = parts[-1].strip()
-            sources.append(Source(
-                number=idx + 1,
-                title=clean_title,
-                url=uri
-            ))
+        if chunks:
+            for idx, chunk in enumerate(chunks):
+                web = chunk.get('web', {})
+                title = web.get('title', 'Unknown Source')
+                uri = web.get('uri', 'No URL')
+                if uri and 'vertexaisearch.cloud.google.com/grounding-api-redirect' in uri:
+                    try:
+                        resp = requests.head(uri, allow_redirects=True, timeout=3)
+                        actual_url = resp.url
+                        if actual_url != uri:
+                            uri = actual_url
+                    except Exception:
+                        pass
+                clean_title = title[:100]
+                if '.' in clean_title and len(clean_title.split()) == 1:
+                    clean_title = clean_title.lower().replace('www.', '')
+                elif ' - ' in clean_title:
+                    parts = clean_title.split(' - ')
+                    clean_title = parts[-1].strip()
+                elif ' | ' in clean_title:
+                    parts = clean_title.split(' | ')
+                    clean_title = parts[-1].strip()
+                sources.append(Source(
+                    number=idx + 1,
+                    title=clean_title,
+                    url=uri
+                ))
+            return sources
+
+        # Try new format (searchEntryPoint with embedded HTML)
+        search_entry_point = grounding_metadata.get('searchEntryPoint', {})
+        rendered_content = search_entry_point.get('renderedContent', '')
+        if rendered_content:
+            pattern = r'<a\s+class="chip"\s+href="([^"]+)">([^<]+)</a>'
+            matches = re.findall(pattern, rendered_content)
+            for idx, (url, title) in enumerate(matches):
+                if url and 'vertexaisearch.cloud.google.com/grounding-api-redirect' in url:
+                    try:
+                        resp = requests.head(url, allow_redirects=True, timeout=3)
+                        actual_url = resp.url
+                        if actual_url != url:
+                            url = actual_url
+                    except Exception:
+                        pass
+                clean_title = title[:100]
+                if '.' in clean_title and len(clean_title.split()) == 1:
+                    clean_title = clean_title.lower().replace('www.', '')
+                elif ' - ' in clean_title:
+                    parts = clean_title.split(' - ')
+                    clean_title = parts[-1].strip()
+                elif ' | ' in clean_title:
+                    parts = clean_title.split(' | ')
+                    clean_title = parts[-1].strip()
+                sources.append(Source(
+                    number=idx + 1,
+                    title=clean_title,
+                    url=url
+                ))
+
         return sources
-    except Exception:
+    except Exception as e:
+        print(f"Warning: Failed to extract sources: {e}")
         return []
 
 
@@ -367,7 +408,7 @@ def generate_scout_report(graph_id: str, player_name: str) -> ScoutReport:
     gemini_rest = get_gemini_rest_service()
     response = gemini_rest.make_ai_call(
         prompt=prompt,
-        model="gemini-2.5-pro",
+        model="gemini-2.5-flash",
         use_grounding=True,
         temperature=0.1
     )

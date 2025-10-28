@@ -23,7 +23,7 @@ APP_NAME = 'kaybee_agent'
 @flog
 def get_random_entity(tool_context: ToolContext) -> dict:
     user_id = tool_context._invocation_context.user_id
-    url = os.environ['KG_URL'] + '/random_neighborhood'
+    url = os.environ['KG_MCP_SERVER_URL'] + '/random_neighborhood'
     r = requests.get(url, params={'graph_id': user_id})
     return r.json()
 
