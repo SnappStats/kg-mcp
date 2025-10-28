@@ -257,17 +257,6 @@ Key media coverage:
 
 ---
 
-## EXTERNAL LINKS
-
-**hudl**: Search "[player_name] Hudl" → "https://www.hudl.com/profile/12345678" or null
-
-**social_media**: "Twitter: @PlayerHandle, Instagram: @playerhandle" or null
-
-**red_flags**: Be objective about injuries, discipline, academic concerns:
-"Minor ankle injury (2 games missed junior year). No behavioral/academic concerns." or "No known red flags"
-
----
-
 **OUTPUT FORMAT REQUIREMENTS - READ CAREFULLY:**
 
 YOU MUST RETURN ONLY RAW JSON. NO MARKDOWN, NO CODE BLOCKS, NO EXPLANATIONS.
