@@ -51,7 +51,7 @@ steps:
         --memory 4Gi \
         --min-instances 1 \
         --allow-unauthenticated \
-        --set-env-vars="$(cat /workspace/.env.cloud | tr '\n' ',' | sed 's/,$//')"
+        --env-vars-file=/workspace/.env.cloud
   waitFor: ['Fetch Doppler Secrets']
 
 # Specify the image to be pushed to Artifact Registry upon successful build.
