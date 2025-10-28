@@ -2,6 +2,7 @@ import json
 import os
 import re
 from typing import Any, Dict
+from logger import logger
 
 import requests
 
@@ -61,7 +62,7 @@ def auto_insert_citations(response_text: str, response: Dict[str, Any]) -> str:
             result = result[:end_index] + citation + result[end_index:]
         return result
     except Exception as e:
-        print(f"Warning: Failed to auto-insert citations: {e}")
+        logger.exception(f"Warning: Failed to auto-insert citations")
         return response_text
 
 
@@ -393,22 +394,20 @@ def generate_scout_report(graph_id: str, player_name: str) -> ScoutReport:
         error_file = '/tmp/gemini_pro_json_error.json'
         with open(error_file, 'w') as f:
             f.write(response_text_with_citations)
-        print(f"JSON parse error: {e}")
-        print(f"Saved problematic JSON to {error_file}")
-        print(f"Context around error (line {e.lineno}):")
+        logger.exception(f"failed to parse response with citations")
         lines = response_text_with_citations.split('\n')
         start = max(0, e.lineno - 3)
         end = min(len(lines), e.lineno + 2)
         for i in range(start, end):
             marker = ">>> " if i == e.lineno - 1 else "    "
-            print(f"{marker}{i+1}: {lines[i]}")
-        print("\nAttempting to fix common JSON errors...")
+            logger.debug(f"{marker}{i+1}: {lines[i]}")
+        logger.debug("attempting to fix common JSON errors...")
         fixed_json = re.sub(r',(\s*[}\]])', r'\1', response_text_with_citations)
         try:
             report_data = json.loads(fixed_json)
-            print("Successfully fixed JSON by removing trailing commas!")
+            logger.debug("successfully fixed JSON by removing trailing commas!")
         except json.JSONDecodeError as e2:
-            print(f"Still failed after fixes: {e2}")
+            logger.exception(f"failed to parse json after attempt to fixe line errors")
             raise e
 
     report_data = flatten_and_fix(report_data)
