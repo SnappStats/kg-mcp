@@ -454,7 +454,6 @@ def generate_scout_report(graph_id: str, player_name: str, max_retries: int = 3)
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.1,
-                    max_output_tokens=40000,
                     tools=[types.Tool(google_search=types.GoogleSearch())]
                 )
             )
