@@ -5,7 +5,6 @@ import requests
 from dotenv import load_dotenv
 from typing import Annotated
 
-from instrumentation import instrument_service, dd_tracer
 from logger import logger
 
 from fastmcp import FastMCP, Context
@@ -25,9 +24,6 @@ from scout_report_agent.agent import generate_scout_report
 
 # Load environment variables from .env file in root directory
 load_dotenv()
-
-# DD Tracing
-instrument_service()
 
 provider = TracerProvider()
 processor = export.BatchSpanProcessor(

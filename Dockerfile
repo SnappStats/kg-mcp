@@ -25,4 +25,4 @@ RUN uv sync --frozen
 EXPOSE 8080
 
 # Run application with ddtrace-run wrapper for automatic instrumentation
-CMD ["uv", "run", "ddtrace-run", "fastmcp", "run", "server.py", "--transport", "http", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uv", "run", "fastmcp", "run", "server.py", "--transport", "http", "--host", "0.0.0.0", "--port", "8080"]
