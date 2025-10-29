@@ -33,7 +33,7 @@ def get_relevant_neighborhood(query: str, tool_context: ToolContext) -> dict:
         dict: The relevant knowledge graph data.
     '''
     graph_id = 'cf460c59-6b2e-42d3-b08d-b20ff54deb57'
-    url = os.environ['KG_MCP_SERVER_URL'] + '/search'
+    url = os.environ['KG_READ_URL'] + '/search'
     r = requests.get(url, params={'query': query, 'graph_id': graph_id})
     return r.json()
 
