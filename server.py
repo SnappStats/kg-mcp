@@ -93,6 +93,8 @@ async def scout_report(
     graph_id = get_http_headers()['x-graph-id']
     user_id = get_http_headers().get('x-author-id','anonymous')
     
+    logger.info(f'processing scout report request for {user_id} and graph {graph_id}')
+    
     report = generate_scout_report(graph_id=graph_id, player_name=player_name)
 
     return report.model_dump_json(indent=2)

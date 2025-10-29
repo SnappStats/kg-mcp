@@ -418,11 +418,16 @@ def extract_sources_from_grounding(response: Dict[str, Any]) -> list[Source]:
 def generate_scout_report(graph_id: str, player_name: str, max_retries: int = 3) -> ScoutReport:
     from google.genai import Client
 
-    url = os.environ['KG_MCP_SERVER_URL'] + '/search'
+    url = os.environ['KG_READ_URL'] + '/search'
+    
+    logger.info(f'requesting kg read action using url: {url}')
+    
     response = requests.get(url, params={'graph_id': graph_id, 'query': player_name})
     if response.status_code != 200 or not response.text:
+        logger.error(f'failed KG search request {response.text}')
         kg_data = {'entities': {}, 'relationships': []}
     else:
+        logger.info('received response from KG search')
         kg_data = response.json()
 
     prompt = f"""
@@ -438,6 +443,9 @@ def generate_scout_report(graph_id: str, player_name: str, max_retries: int = 3)
 
     for attempt in range(max_retries):
         try:
+            
+            logger.info(f'requesting gemini to generate scout report for player: {player_name}')
+            
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=prompt,
@@ -446,6 +454,8 @@ def generate_scout_report(graph_id: str, player_name: str, max_retries: int = 3)
                     tools=[types.Tool(google_search=types.GoogleSearch())]
                 )
             )
+            
+            logger.info(f'received gemini response to generate scout report for player: {player_name}')
 
             response_text = response.text
 
@@ -519,6 +529,9 @@ def generate_scout_report(graph_id: str, player_name: str, max_retries: int = 3)
                 report_data['sources'] = []
 
             report = ScoutReport(**report_data)
+            
+            logger.info(f'scout report completed for player: {player_name}')
+            
             return report
 
         except Exception as e:
