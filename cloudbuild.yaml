@@ -22,28 +22,47 @@ steps:
   ]
   waitFor: ['Docker Build']
 
-  # Step 3: Deploy the image to Cloud Run
+  # Step 3: Fetch environment variables from Doppler
+  # This step fetches all environment variables from Doppler and saves them to a file.
+- id: 'Fetch Doppler Secrets'
+  name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      curl -Ls --tlsv1.2 --proto "=https" --retry 3 https://cli.doppler.com/install.sh | sh
+      doppler secrets download --no-file --format=yaml > /workspace/env.yaml
+  secretEnv: ['DOPPLER_TOKEN']
+  waitFor: ['Docker Push']
+
+  # Step 4: Deploy the image to Cloud Run
   # This step uses the gcloud builder to deploy the container.
-  # The 'entrypoint' is set to 'gcloud', so the command starts with 'run'.
-  # It depends on the 'Docker Push' step completing successfully.
+  # It depends on the 'Fetch Doppler Secrets' step completing successfully.
 - id: 'Deploy to Cloud Run'
   name: 'gcr.io/cloud-builders/gcloud'
-  args: [
-    'run', 'deploy', 'kg-mcp',
-    '--image', 'us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/kg-mcp',
-    '--region', 'us-central1',
-    '--platform', 'managed',
-    '--memory', '4Gi',
-    '--min-instances', '1',
-    '--allow-unauthenticated',
-    '--env-vars-file', '.env.yaml',
-    '--set-secrets=GOOGLE_API_KEY=VERTEX_AI_API_KEY:1'
-  ]
-  waitFor: ['Docker Push']
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      gcloud run deploy kg-mcp \
+        --image us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/kg-mcp \
+        --region us-central1 \
+        --platform managed \
+        --memory 4Gi \
+        --min-instances 1 \
+        --allow-unauthenticated \
+        --env-vars-file=/workspace/env.yaml
+  waitFor: ['Fetch Doppler Secrets']
 
 # Specify the image to be pushed to Artifact Registry upon successful build.
 images:
 - 'us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/kg-mcp'
+
+# Make secrets available to build steps
+availableSecrets:
+  secretManager:
+  - versionName: projects/${PROJECT_ID}/secrets/DOPPLER_TOKEN/versions/latest
+    env: 'DOPPLER_TOKEN'
 
 options:
   logging: CLOUD_LOGGING_ONLY

@@ -23,7 +23,8 @@ USER_ID = 'bot'
 
 @flog
 def get_random_entity(tool_context: ToolContext) -> dict:
-    url = os.environ['KG_URL'] + '/random_neighborhood'
+    user_id = tool_context._invocation_context.user_id
+    url = os.environ['KG_READ_URL'] + '/random_neighborhood'
     r = requests.get(url, params={'graph_id': GRAPH_ID})
     return r.json()
 

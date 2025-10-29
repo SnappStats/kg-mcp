@@ -1,5 +1,7 @@
 from floggit import flog
 import os
+import json
+import tempfile
 import requests
 from dotenv import load_dotenv
 
@@ -9,6 +11,12 @@ from google.adk.tools import ToolContext
 from google.genai import types
 
 load_dotenv()
+
+if 'API_GOOGLE_SERVICE_ACCOUNT_CREDENTIALS' in os.environ:
+    creds_json = json.loads(os.environ['API_GOOGLE_SERVICE_ACCOUNT_CREDENTIALS'])
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        json.dump(creds_json, f)
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = f.name
 
 PROMPT = """
 You are an agent with access to a knowledge graph. Your goal is to retrieve what is _currently_ stored in the knowledge graph, relevant to the user's input (e.g. conversation snippets, documents, etc.).
@@ -25,7 +33,7 @@ def get_relevant_neighborhood(query: str, tool_context: ToolContext) -> dict:
         dict: The relevant knowledge graph data.
     '''
     graph_id = 'cf460c59-6b2e-42d3-b08d-b20ff54deb57'
-    url = os.environ['KG_URL'] + '/search'
+    url = os.environ['KG_READ_URL'] + '/search'
     r = requests.get(url, params={'query': query, 'graph_id': graph_id})
     return r.json()
 
