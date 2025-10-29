@@ -18,9 +18,9 @@ GRAPH_ID = 'cf460c59-6b2e-42d3-b08d-b20ff54deb57'
 
 def _get_bucket():
     storage_client = storage.Client()
-    bucket_name = os.environ.get("KNOWLEDGE_GRAPH_BUCKET")
+    bucket_name = os.environ.get("KG_BUCKET")
     if not bucket_name:
-        raise ValueError("KNOWLEDGE_GRAPH_BUCKET environment variable not set.")
+        raise ValueError("KG_BUCKET environment variable not set.")
     return storage_client.get_bucket(bucket_name)
 
 
