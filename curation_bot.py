@@ -18,13 +18,13 @@ from google.adk.tools.agent_tool import AgentTool
 dotenv.load_dotenv()
 session_service = InMemorySessionService()
 APP_NAME = 'kaybee_agent'
-
+GRAPH_ID = 'cf460c59-6b2e-42d3-b08d-b20ff54deb57'
+USER_ID = 'bot'
 
 @flog
 def get_random_entity(tool_context: ToolContext) -> dict:
-    user_id = tool_context._invocation_context.user_id
     url = os.environ['KG_URL'] + '/random_neighborhood'
-    r = requests.get(url, params={'graph_id': user_id})
+    r = requests.get(url, params={'graph_id': GRAPH_ID})
     return r.json()
 
 
@@ -55,14 +55,15 @@ agent = Agent(
         McpToolset(
             connection_params=StreamableHTTPConnectionParams(
                 url=os.environ['KG_MCP_SERVER']
-            )
+            ),
+            tool_filter=['curate_knowledge'],
         ),
     ],
 )
 
-async def call_agent(user_id: str):
+async def call_agent():
     session = await session_service.create_session(
-            app_name=APP_NAME, user_id=user_id)
+            app_name=APP_NAME, user_id=USER_ID)
 
     runner = Runner(
         agent=agent,
@@ -70,34 +71,19 @@ async def call_agent(user_id: str):
         session_service=session_service
     )
 
-    user_content = types.Content(role='user', parts=[types.Part(text=f'Expand the knowledge graph for user_id {user_id}.')])
+    user_content = types.Content(role='user', parts=[types.Part(text=f'Expand the knowledge graph.')])
     result = runner.run_async(
-            user_id=user_id, session_id=session.id, new_message=user_content)
+            user_id=USER_ID, session_id=session.id, new_message=user_content)
 
     # Need this line.... Is there a good replacement?
     async for event in result:
-        pass
+        print(event)
+        #pass
 
-
-async def main(knowledge: str, tool_context: ToolContext):
-    '''Curates/updates knowledge store with facts contained in the conversation.
-
-    Args:
-        knowledge (str): Any potentially new or updated knowledge encountered in the conversation.
-    '''
-    app_name = tool_context._invocation_context.app_name
-    user_id = tool_context._invocation_context.user_id
-    session_id = tool_context._invocation_context.session.id
-
-    agent_call = call_agent(
-            app_name=app_name, user_id=user_id, session_id=session_id, query=knowledge)
-    #asyncio.create_task(agent_call)
-    await agent_call
 
 # If running this code as a standalone Python script, you'll need to use asyncio.run() or manage the event loop.
 if __name__ == "__main__":
-    #asyncio.run(main())
     import time
     while True:
-        asyncio.run(call_agent(user_id='116034988107995783513'))
+        asyncio.run(call_agent())
         time.sleep(90)
