@@ -5,7 +5,7 @@ from google.adk.planners import BuiltInPlanner
 from google.genai import types
 
 from .schemas import KnowledgeGraph
-from .tools import update_graph
+from .update_graph import main as update_graph
 
 PROMPT = """
 You are a specialized agent that updates a knowledge graph with facts about the user and their world, for the purpose of carrying a conversation and answering questions.
