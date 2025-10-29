@@ -109,7 +109,7 @@ async def search_knowledge_graph(
 ) -> dict:
     graph_id = get_http_headers()['x-graph-id']
 
-    url = os.environ['KG_MCP_SERVER_URL'] + '/search'
+    url = os.environ['KG_READ_URL'] + '/search'
     r = requests.get(url, params={'query': query, 'graph_id': graph_id})
 
     return r.json()

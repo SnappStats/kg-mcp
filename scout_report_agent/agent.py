@@ -319,7 +319,7 @@ DO NOT write facts without citations!
 
 def search_knowledge_graph(query: str, tool_context: ToolContext) -> dict:
     graph_id = tool_context.metadata.get('graph_id', 'test_graph')
-    url = os.environ['KG_MCP_SERVER_URL'] + '/search'
+    url = os.environ['KG_READ_URL'] + '/search'
     response = requests.get(url, params={'graph_id': graph_id, 'query': query})
     if response.status_code != 200:
         return {'entities': {}, 'relationships': []}
