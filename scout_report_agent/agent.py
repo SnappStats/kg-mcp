@@ -1,3 +1,4 @@
+from floggit import flog
 import os
 import json
 import re
@@ -316,7 +317,7 @@ Example: "Height: 6'4\" (Texas, 2025).[1] Weight: 219 lbs (247Sports, 2024).[2,3
 DO NOT write facts without citations!
 """
 
-
+@flog
 def search_knowledge_graph(query: str, tool_context: ToolContext) -> dict:
     graph_id = tool_context.metadata.get('graph_id', 'test_graph')
     url = os.environ['KG_URL'] + '/search'
@@ -342,6 +343,7 @@ agent = Agent(
 )
 
 
+@flog
 def extract_sources_from_grounding(response: Dict[str, Any]) -> list[Source]:
     try:
         sources = []
@@ -415,6 +417,7 @@ def extract_sources_from_grounding(response: Dict[str, Any]) -> list[Source]:
         return []
 
 
+@flog
 def generate_scout_report(graph_id: str, player_name: str, max_retries: int = 3) -> ScoutReport:
     from google.genai import Client
 
