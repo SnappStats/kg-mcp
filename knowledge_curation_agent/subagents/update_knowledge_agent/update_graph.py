@@ -254,7 +254,6 @@ def _fetch_knowledge_graph(graph_id: str) -> dict:
         return json.loads(content)
 
 
-@flog
 def _store_knowledge_graph(knowledge_graph: dict, graph_id: str) -> None:
     """Stores the knowledge graph in the Google Cloud Storage bucket."""
     entity_ids = set(knowledge_graph['entities'].keys())
