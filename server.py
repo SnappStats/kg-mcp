@@ -33,26 +33,26 @@ processor = export.BatchSpanProcessor(
 provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
 
-SESSION_SERVICE_URI = 'agentengine://projects/785636189485/locations/us-central1/reasoningEngines/4041334152727887872'
+AGENT_ENGINE_ID = os.environ['SESSION_SERVICE_URI'].split('/')[-1]
 
 session_service = VertexAiSessionService(
-    agent_engine_id=SESSION_SERVICE_URI.split('/')[-1],
+    agent_engine_id=AGENT_ENGINE_ID,
 )
+
+runner = Runner(
+    agent=knowledge_curation_agent,
+    app_name=AGENT_ENGINE_ID,
+    session_service=session_service
+)
+
 
 mcp = FastMCP("knowledge_graph")
 
 async def _curate_knowledge(graph_id: str, user_id: str, query: str):
     session = await session_service.create_session(
-            app_name=SESSION_SERVICE_URI.split('/')[-1],
+            app_name=AGENT_ENGINE_ID,
             user_id=user_id,
             state={'graph_id': graph_id})
-
-    runner = Runner(
-        agent=knowledge_curation_agent,
-        app_name=SESSION_SERVICE_URI.split('/')[-1],
-        session_service=session_service
-    )
-
 
     user_content = types.Content(role='user', parts=[types.Part(text=query)])
     qwer = runner.run_async(user_id=user_id, session_id=session.id, new_message=user_content)
