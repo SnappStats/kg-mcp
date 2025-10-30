@@ -31,7 +31,7 @@ Here's the original subgraph that should be updated:
 The replacement subgraph must:
 -   **Include all new/updated knowledge** implied by the user input.
 -   **Preserve existing knowledge** from the original subgraph, to the extent it is not updated/contradicted by new knowledge.
--   **Include all original externally-connected entities**, so it retains its connection to the parts of the graph that are not being updated.
+-   **Include all original externally-connected entities**, even redundant entities, so it retains its connection to the parts of the graph that are not being updated.
 -   **(Faithfully) simplify graph topology** where possible, such as combining nodes that represent the same entity, or removing redundant relationships.
 
 If there is no new or updated knowledge, the replacement subgraph should of course resemble the original subgraph. If the updated knowledge eradicates the original knowledge, the replacement subgraph should be empty.

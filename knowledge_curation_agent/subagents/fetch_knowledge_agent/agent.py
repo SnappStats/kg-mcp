@@ -32,21 +32,22 @@ def get_relevant_neighborhood(query: str, tool_context: ToolContext) -> dict:
     Returns:
         dict: The relevant knowledge graph data.
     '''
-    graph_id = 'cf460c59-6b2e-42d3-b08d-b20ff54deb57'
+    graph_id = tool_context.state['graph_id']
     url = os.environ['KG_READ_URL'] + '/search'
     r = requests.get(url, params={'query': query, 'graph_id': graph_id})
+    tool_context.state['existing_knowledge'] = r.json()
     return r.json()
 
 
 agent = Agent(
     name="fetch_knowledge_agent",
     model="gemini-2.5-flash",
-    planner=BuiltInPlanner(
-        thinking_config=types.ThinkingConfig(
-            include_thoughts=True,
-            thinking_budget=512,
-        )
-    ),
+    #planner=BuiltInPlanner(
+    #    thinking_config=types.ThinkingConfig(
+    #        include_thoughts=True,
+    #        thinking_budget=512,
+    #    )
+    #),
     instruction=PROMPT,
     tools=[
         get_relevant_neighborhood

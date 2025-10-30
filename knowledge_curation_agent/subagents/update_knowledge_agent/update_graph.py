@@ -14,8 +14,6 @@ from .utils import generate_random_string, remove_nonalphanumeric
 
 load_dotenv()
 
-GRAPH_ID = 'cf460c59-6b2e-42d3-b08d-b20ff54deb57'
-
 
 class InvalidUpdatedKnowledgeSubgraphError(Exception):
         """Custom exception for invalid knowledge subgraph."""
@@ -60,14 +58,17 @@ def main(callback_context: CallbackContext, llm_response: LlmResponse) -> Option
         _update_graph(
                 old_subgraph=existing_subgraph,
                 new_subgraph=replacement_subgraph,
-                user_id=callback_context._invocation_context.user_id)
+                user_id=callback_context._invocation_context.user_id,
+                graph_id=callback_context.state['graph_id'])
     else:
         logging.error("No response text found in LLM response.")
         return
 
 
 @flog
-def _update_graph(old_subgraph: dict, new_subgraph: dict, user_id: str):
+def _update_graph(
+        old_subgraph: dict, new_subgraph: dict, user_id: str, graph_id: str
+) -> None:
     '''Updates the knowledge graph by replacing old_subgraph with new_subgraph.'''
 
     # Ensure valence entities are included in new_subgraph
@@ -98,10 +99,9 @@ def _update_graph(old_subgraph: dict, new_subgraph: dict, user_id: str):
             graph=add_subgraph,
             user_id=user_id)
 
-    import pdb; pdb.set_trace()
     # Splice updated subgraph into knowledge graph
     _splice_subgraph(
-            graph_id=GRAPH_ID,
+            graph_id=graph_id,
             remove_subgraph=remove_subgraph,
             add_subgraph=add_subgraph)
 
@@ -118,7 +118,7 @@ def _update_graph_metadata(graph: dict, user_id: str) -> dict:
         dict: The graph with updated metadata.
     '''
     id_mapping = {
-            entity_id: _generate_entity_id(entity['name'])
+            entity_id: _generate_entity_id(entity['entity_names'][0])
             for entity_id, entity in graph['entities'].items()
     }
 
@@ -134,8 +134,10 @@ def _update_graph_metadata(graph: dict, user_id: str) -> dict:
 
     # Update relationships
     for rel in graph['relationships']:
-        rel['source_entity_id'] = id_mapping[rel['source_entity_id']]
-        rel['target_entity_id'] = id_mapping[rel['target_entity_id']]
+        rel['source_entity_id'] = id_mapping.get(
+                rel['source_entity_id'], rel['source_entity_id'])
+        rel['target_entity_id'] = id_mapping.get(
+                rel['target_entity_id'], rel['target_entity_id'])
 
     return graph
 
@@ -177,7 +179,7 @@ def _restore_original_IDs(
 
     # Excise preserved entities with their new IDs
     new_subgraph['entities'] = {
-            k: v for k, v in new_subgraph.items()
+            k: v for k, v in new_subgraph['entities'].items()
             if k not in id_mapping}
 
     # Update relationships to use old IDs

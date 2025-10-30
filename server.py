@@ -11,7 +11,8 @@ from fastmcp import FastMCP, Context
 from fastmcp.server.dependencies import get_http_headers
 
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
+#from google.adk.sessions import InMemorySessionService
+from google.adk.sessions import VertexAiSessionService
 from google.genai import types
 
 from opentelemetry import trace
@@ -32,24 +33,27 @@ processor = export.BatchSpanProcessor(
 provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
 
-APP_NAME = 'kg'
-GRAPH_ID = 'cf460c59-6b2e-42d3-b08d-b20ff54deb57.json'
+GRAPH_ID = 'cf460c59-6b2e-42d3-b08d-b20ff54deb57'
+SESSION_SERVICE_URI = 'agentengine://projects/785636189485/locations/us-central1/reasoningEngines/4041334152727887872'
 
-session_service = InMemorySessionService()
+session_service = VertexAiSessionService(
+    agent_engine_id=SESSION_SERVICE_URI.split('/')[-1],
+)
 
 mcp = FastMCP("knowledge_graph")
 
 async def _curate_knowledge(graph_id: str, user_id: str, query: str):
-    session = await session_service.create_session(app_name=APP_NAME, user_id=user_id)
+    session = await session_service.create_session(
+            app_name=SESSION_SERVICE_URI.split('/')[-1],
+            user_id=user_id,
+            state={'graph_id': graph_id})
 
     runner = Runner(
         agent=knowledge_curation_agent,
-        app_name=APP_NAME,
+        app_name=SESSION_SERVICE_URI.split('/')[-1],
         session_service=session_service
     )
 
-    session.state['graph_id'] = graph_id
-    session.state['user_id'] = user_id
 
     user_content = types.Content(role='user', parts=[types.Part(text=query)])
     qwer = runner.run_async(user_id=user_id, session_id=session.id, new_message=user_content)
@@ -69,7 +73,7 @@ def _start_async_loop(**kwargs):
 async def curate_knowledge(
         query: Annotated[str, "A snippet of text or a document that contains potentially new or updated knowledge."],
 ) -> str:
-    graph_id = get_http_headers().get('x-graph-id', GRAPH_ID)
+    graph_id = get_http_headers()['x-graph-id']
     user_id = get_http_headers().get('x-author-id','anonymous')
 
     t = threading.Thread(

@@ -55,7 +55,8 @@ agent = Agent(
         AgentTool(agent=search_agent),
         McpToolset(
             connection_params=StreamableHTTPConnectionParams(
-                url=os.environ['KG_MCP_SERVER']
+                url=os.environ['KG_MCP_SERVER'],
+                headers={'x-graph-id': GRAPH_ID},
             ),
             tool_filter=['curate_knowledge'],
         ),
@@ -87,4 +88,4 @@ if __name__ == "__main__":
     import time
     while True:
         asyncio.run(call_agent())
-        time.sleep(90)
+        time.sleep(900)
