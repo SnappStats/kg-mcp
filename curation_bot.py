@@ -44,6 +44,7 @@ Simply perform these three steps:
     1. Use `get_random_entity` to retrieve an existing entity (and its neighborhood) from the knowledge graph.
     2. Use the `search_agent` tool, multiple times if necessary, to do an internet search for more/updated knowledge about the entity and its relationships.
     3. Use `curate_knowledge` tool to record any new or updated knowledge.
+    4. If any players are encountered, generate a Scout Report for one of them.
 '''
 
 agent = Agent(
@@ -58,7 +59,7 @@ agent = Agent(
                 url=os.environ['KG_MCP_SERVER'],
                 headers={'x-graph-id': GRAPH_ID},
             ),
-            tool_filter=['curate_knowledge'],
+            tool_filter=['curate_knowledge', 'generate_scout_report'],
         ),
     ],
 )
