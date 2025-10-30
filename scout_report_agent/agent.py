@@ -319,7 +319,7 @@ DO NOT write facts without citations!
 
 def search_knowledge_graph(query: str, tool_context: ToolContext) -> dict:
     graph_id = tool_context.metadata.get('graph_id', 'test_graph')
-    url = os.environ['KG_READ_URL'] + '/search'
+    url = os.environ['KG_URL'] + '/search'
     response = requests.get(url, params={'graph_id': graph_id, 'query': query})
     if response.status_code != 200:
         return {'entities': {}, 'relationships': []}
@@ -418,7 +418,7 @@ def extract_sources_from_grounding(response: Dict[str, Any]) -> list[Source]:
 def generate_scout_report(graph_id: str, player_name: str, max_retries: int = 3) -> ScoutReport:
     from google.genai import Client
 
-    url = os.environ['KG_READ_URL'] + '/search'
+    url = os.environ['KG_URL'] + '/search'
     
     logger.info(f'requesting kg read action using url: {url}')
     

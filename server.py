@@ -33,7 +33,6 @@ processor = export.BatchSpanProcessor(
 provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
 
-GRAPH_ID = 'cf460c59-6b2e-42d3-b08d-b20ff54deb57'
 SESSION_SERVICE_URI = 'agentengine://projects/785636189485/locations/us-central1/reasoningEngines/4041334152727887872'
 
 session_service = VertexAiSessionService(
@@ -113,7 +112,7 @@ async def search_knowledge_graph(
 ) -> dict:
     graph_id = get_http_headers()['x-graph-id']
 
-    url = os.environ['KG_READ_URL'] + '/search'
+    url = os.environ['KG_URL'] + '/search'
     r = requests.get(url, params={'query': query, 'graph_id': graph_id})
 
     return r.json()
