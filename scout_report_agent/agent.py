@@ -197,22 +197,23 @@ Here is the knowledge graph result, use what you can from it to inform the searc
     - If you CANNOT find this player → State "PLAYER NOT FOUND" at the top and explain what you searched and why you couldn't identify them
 * **VALIDATION:** You must first **validate the player's current or final high school**. Some sources (like Hudl) may list a training academy.
 * **CHECK FOR TRANSFERS:** You must also **actively search to see if the player has transferred** and played varsity at any other high school during their career.
-* **SPORT-SPECIFIC SOURCE REQUIREMENTS:**
-    - **CRITICAL:** Apply THE SAME LEVEL OF RIGOR regardless of sport - use authoritative, sport-specific recruiting and stats sources
-    - DO NOT rely on Wikipedia as a primary source - use actual sports recruiting sites with real scouting data, stats, and recruiting information
-    - **FOOTBALL:** 247Sports, On3, ESPN, Rivals, MaxPreps, The Athletic, Pro Football Focus (PFF)
-    - **BASKETBALL:** 247Sports Basketball, Rivals Hoops, ESPN Basketball, On3 Basketball, PrepHoops, VerbalCommits, Prep Circuit, Grassroots Hoops, Ballislife, EYB (EvalYouthBasketball), KenPom (college analytics), Synergy Sports (video/analytics)
-    - **TRACK & FIELD:** Athletic.net, MileSplit, DyeStat, FloTrack, TFRRS (Track & Field Results Reporting System), state athletic association results, USTFCCCA rankings
-    - **BASEBALL:** Perfect Game (PG), Prep Baseball Report (PBR), Baseball America, D1Baseball, MaxPreps Baseball, Extra Innings Elite, Prospects1500
-    - **SOCCER:** TopDrawerSoccer, United Soccer Coaches, IMG Academy Soccer, College Soccer News, SoccerWire, YouthSoccerRankings
-    - **VOLLEYBALL:** PrepVolleyball (PrepDig), MaxPreps Volleyball, VolleyballMag, PrepVolleyball.com recruiting rankings
-    - **LACROSSE:** Inside Lacrosse (IL), Lacrosse Bucket, USA Lacrosse Magazine, NXT Level Lacrosse
-    - **WRESTLING:** FloWrestling, MatScouts, The Open Mat (TOM), WrestlingStat, TrackWrestling
-    - **SWIMMING:** SwimSwam, USA Swimming Times Database, CollegeSwimming.com
-    - **OTHER SPORTS:** Find and use the equivalent authoritative recruiting/stats sites for that sport (national governing body, recruiting-focused sites, verified stats databases)
+
+**SPORT-SPECIFIC SOURCE REQUIREMENTS:**
+* **CRITICAL:** Apply THE SAME LEVEL OF RIGOR regardless of sport - use authoritative, sport-specific recruiting and stats sources
+* DO NOT rely on Wikipedia as a primary source - use actual sports recruiting sites with real scouting data, stats, and recruiting information
+* **FOOTBALL:** 247Sports, On3, ESPN, Rivals, MaxPreps, The Athletic, Pro Football Focus (PFF)
+* **BASKETBALL:** 247Sports Basketball, Rivals Hoops, ESPN Basketball, On3 Basketball, PrepHoops, VerbalCommits, Prep Circuit, Grassroots Hoops, Ballislife, EYB (EvalYouthBasketball), KenPom (college analytics), Synergy Sports (video/analytics)
+* **TRACK & FIELD:** Athletic.net, MileSplit, DyeStat, FloTrack, TFRRS (Track & Field Results Reporting System), state athletic association results, USTFCCCA rankings
+* **BASEBALL:** Perfect Game (PG), Prep Baseball Report (PBR), Baseball America, D1Baseball, MaxPreps Baseball, Extra Innings Elite, Prospects1500
+* **SOCCER:** TopDrawerSoccer, United Soccer Coaches, IMG Academy Soccer, College Soccer News, SoccerWire, YouthSoccerRankings
+* **VOLLEYBALL:** PrepVolleyball (PrepDig), MaxPreps Volleyball, VolleyballMag, PrepVolleyball.com recruiting rankings
+* **LACROSSE:** Inside Lacrosse (IL), Lacrosse Bucket, USA Lacrosse Magazine, NXT Level Lacrosse
+* **WRESTLING:** FloWrestling, MatScouts, The Open Mat (TOM), WrestlingStat, TrackWrestling
+* **SWIMMING:** SwimSwam, USA Swimming Times Database, CollegeSwimming.com
+* **OTHER SPORTS:** Find and use the equivalent authoritative recruiting/stats sites for that sport (national governing body, recruiting-focused sites, verified stats databases)
 * Prioritize reputable sources. Use the "Source Guidance" in each section to find the right information FOR THE ATHLETE'S PRIMARY SPORT.
 
-**REQUIRED INFORMATION TO COMPILE:**
+**REQUIRED INFORMATION TO COMPILE (FOOTBALL EXAMPLE):**
 
 1.  **Player Identity & Basic Info**
     * **Source Guidance:** Use primary recruiting profiles (247Sports, On3, etc.) and team rosters (MaxPreps) to confirm.
