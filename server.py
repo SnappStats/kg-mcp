@@ -85,7 +85,7 @@ async def curate_knowledge(
     asyncio.create_task(
             _curate_knowledge(
                 graph_id=graph_id, user_id=user_id, query=query))
-    t.start()
+    #t.start()
 
     return 'This is being taken care of.'
 
