@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import json
 import os
 import requests
 from dotenv import load_dotenv
@@ -82,25 +83,29 @@ async def curate_knowledge(
 
 @mcp.tool(
         name='generate_scout_report',
-        description='This tool returns a detailed Scout Report for a given player. It should be called whenever the user solicits a Scout Report, or solicits information likely to be found in a Scout Report.'
+        description='This tool returns a detailed Scout Report for a given player. CRITICAL: The player_name parameter MUST contain ALL identifying information you have gathered about the player. Pass comprehensive details including name, position, school, graduation class, rankings, stats, physical profile, commitment status - everything you know. This ensures the scout agent researches the exact right player.'
 )
 async def scout_report(
-        player_name: Annotated[str, "The name of the player for whom a Scout Report is being requested."]
+        ctx: Context,
+        player_name: Annotated[str, "COMPREHENSIVE player identification with ALL details gathered. Include: Full name, position, school (city, state), graduation class, star rating, height/weight, key stats, commitment status, rankings, and any other identifying information. If multiple players with same name were found, include 'NOT:' section listing the other players to avoid confusion. Example single player: 'Justin Lewis - CB, Rancho Cucamonga High School (Rancho Cucamonga, CA), Class of 2026, 4-star (247Sports), 6'0\" 180 lbs, committed to UCLA, #15 CB nationally, 5 INTs senior year'. Example with disambiguation: 'Michael Smith - QB, DeSoto HS (TX), Class 2025, 5-star, 6'4\" 220 lbs, committed Texas, #1 QB. NOT: Michael Smith WR California Class 2026, Michael Smith RB Florida Class 2025'. DO NOT pass minimal information - the more details you provide, the more accurately the scout agent can identify and research the correct player."]
 ) -> str:
     graph_id = get_http_headers()['x-graph-id']
     user_id = get_http_headers().get('x-author-id','anonymous')
-    
+
     logger.info(f'processing scout report request for {user_id} and graph {graph_id}')
 
     loop = asyncio.get_running_loop()
-    report = await loop.run_in_executor(
+    result = await loop.run_in_executor(
             None, functools.partial(
                 generate_scout_report,
-                data={'graph_id': graph_id, 'player_name': player_name}
+                graph_id=graph_id,
+                player_name=player_name,
+                ctx=ctx
             )
-    ),
-    
-    return report.model_dump_json(indent=2)
+    )
+
+    # Result is now a dict with 'notes' and 'sources'
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool(
