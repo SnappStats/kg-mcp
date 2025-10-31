@@ -171,11 +171,17 @@ def generate_scout_report(graph_id: str, player_name: str, max_retries: int = 3,
         if not kg_context:
             kg_context = "\n**No existing knowledge graph data available.** Start from scratch with web searches.\n"
 
+        # Get current date for search queries
+        from datetime import datetime
+        current_date = datetime.now().strftime('%Y-%m-%d')
+
         # Build comprehensive prompt
         prompt = f"""
 **CONTEXT: This report is for a COACHING STAFF making recruiting decisions. Quality and credibility are CRITICAL.**
 
 YOU MUST FOLLOW THIS FORMAT STRICTLY - coaches rely on accurate, well-sourced information.
+
+**Current Date: {current_date}** - Use this in your search queries to get the most recent information (e.g., "player name 2024 stats", "player name 2025 recruiting"). This is especially important for high school players to get their current season stats and recruiting status.
 
 **Objective:**
 Collect and summarize all available verified, up-to-date information and scouting context for the athlete: {search_info}.
