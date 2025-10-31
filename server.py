@@ -1,5 +1,5 @@
 import asyncio
-import threading
+import functools
 import os
 import requests
 from dotenv import load_dotenv
@@ -11,7 +11,6 @@ from fastmcp import FastMCP, Context
 from fastmcp.server.dependencies import get_http_headers
 
 from google.adk.runners import Runner
-#from google.adk.sessions import InMemorySessionService
 from google.adk.sessions import VertexAiSessionService
 from google.genai import types
 
@@ -45,7 +44,6 @@ runner = Runner(
     session_service=session_service
 )
 
-
 mcp = FastMCP("knowledge_graph")
 
 async def _curate_knowledge(graph_id: str, user_id: str, query: str):
@@ -75,19 +73,12 @@ async def curate_knowledge(
     graph_id = get_http_headers()['x-graph-id']
     user_id = get_http_headers().get('x-author-id','anonymous')
 
-    #t = threading.Thread(
-    #    target=_start_async_loop,
-    #    name="BackgroundWorker",
-    #    kwargs={'graph_id': graph_id, 'user_id': user_id, 'query': query},
-    #    daemon=False
-    #)
-
     asyncio.create_task(
             _curate_knowledge(
                 graph_id=graph_id, user_id=user_id, query=query))
-    #t.start()
 
     return 'This is being taken care of.'
+
 
 @mcp.tool(
         name='generate_scout_report',
@@ -100,9 +91,15 @@ async def scout_report(
     user_id = get_http_headers().get('x-author-id','anonymous')
     
     logger.info(f'processing scout report request for {user_id} and graph {graph_id}')
-    
-    report = generate_scout_report(graph_id=graph_id, player_name=player_name)
 
+    loop = asyncio.get_running_loop()
+    report = await loop.run_in_executor(
+            None, functools.partial(
+                generate_scout_report,
+                data={'graph_id': graph_id, 'player_name': player_name}
+            )
+    ),
+    
     return report.model_dump_json(indent=2)
 
 
