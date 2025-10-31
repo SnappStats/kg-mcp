@@ -74,14 +74,17 @@ async def curate_knowledge(
 ) -> str:
     graph_id = get_http_headers()['x-graph-id']
     user_id = get_http_headers().get('x-author-id','anonymous')
-
+    '''
     t = threading.Thread(
         target=_start_async_loop,
         name="BackgroundWorker",
         kwargs={'graph_id': graph_id, 'user_id': user_id, 'query': query},
         daemon=False
     )
-    
+    '''
+    asyncio.create_task(
+            _curate_knowledge(
+                graph_id=graph_id, user_id=user_id, query=query))
     t.start()
 
     return 'This is being taken care of.'
