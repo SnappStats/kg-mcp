@@ -20,15 +20,15 @@ class InvalidUpdatedKnowledgeSubgraphError(Exception):
         def __init__(
                 self,
                 message: str,
-                valence_entity_ids: set = None,
+                missing_valence_entity_ids: set = None,
                 updated_knowledge_subgraph: dict = None):
             super().__init__(message)
-            self.valence_entity_ids = valence_entity_ids
+            self.missing_valence_entity_ids = missing_valence_entity_ids
             self.updated_knowledge_subgraph = updated_knowledge_subgraph
 
         def __str__(self):
             base_message = super().__str__()
-            base_message += f" Valence entity IDs: {self.valence_entity_ids}."
+            base_message += f" Valence entity IDs: {self.missing_valence_entity_ids}."
             base_message += f" Updated knowledge subgraph: {self.updated_knowledge_subgraph}."
 
             return base_message
@@ -71,18 +71,19 @@ def _update_graph(
 ) -> None:
     '''Updates the knowledge graph by replacing old_subgraph with new_subgraph.'''
 
-    # Ensure valence entities are included in new_subgraph
-    valence_entity_ids = {
-            entity_id
-            for entity_id, entity in old_subgraph['entities'].items()
-            if entity['has_external_neighbor']
-    }
-    if not valence_entity_ids.issubset(new_subgraph['entities'].keys()):
+    valence_entity_ids = _get_valence_entities(graph=old_subgraph)
+
+    if missing_valence_entity_ids := _get_missing_entity_ids(
+            graph=new_subgraph, required_entity_ids=valence_entity_ids):
         raise InvalidUpdatedKnowledgeSubgraphError(
                 message="Updated subgraph missing valence entities.",
-                valence_entity_ids=valence_entity_ids,
+                missing_valence_entity_ids=missing_valence_entity_ids,
                 updated_knowledge_subgraph=new_subgraph
         )
+
+    # Remove relationships pointing to nonexistent entities.
+    new_subgraph = _trim_fuzzy_relationships(
+            graph=new_subgraph, ignore=valence_entity_ids)
 
     # Restore original IDs for preserved entities
     new_subgraph = _restore_original_IDs(
@@ -104,6 +105,49 @@ def _update_graph(
             graph_id=graph_id,
             remove_subgraph=remove_subgraph,
             add_subgraph=add_subgraph)
+
+
+@flog
+def _trim_fuzzy_relationships(graph: dict, ignore: set) -> dict:
+    '''Remove edges that refer to nonexistent entities.'''
+
+    required_entity_ids = graph['entities'].keys() - ignore
+    graph['relationships'] = [
+            r for r in graph['relationships']
+            if (
+                r['source_entity_id'] in required_entity_ids
+                and r['target_entity_id'] in required_entity_ids
+            )
+    ]
+
+    return graph
+
+
+@flog
+def _get_valence_entities(graph: dict) -> dict:
+    '''Returns a graph's valence entities.
+
+    Args:
+        graph (dict): A graph.
+
+    Returns:
+        set: A dict of valence entities.
+    '''
+    return {
+            entity_id
+            for entity_id, entity in graph['entities'].items()
+            if entity['has_external_neighbor']
+    }
+
+@flog
+def _get_missing_entity_ids(
+        graph: dict, required_entity_ids: set) -> set:
+    '''Returns the IDs of entities missing from the graph.'''
+    existing_entity_ids = set(graph['entities'].keys()).union(
+            rel['source_entity_id'] for rel in graph['relationships']).union(
+            rel['target_entity_id'] for rel in graph['relationships'])
+
+    return required_entity_ids - existing_entity_ids
 
 
 @flog
