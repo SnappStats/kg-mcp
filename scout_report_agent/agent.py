@@ -3,12 +3,12 @@ Scout Report Agent - Generates comprehensive scout reports for athletes
 Uses direct Gemini REST API calls with Google Search grounding
 """
 from floggit import flog
+import logging
 import os
 import time
 import requests
 from typing import Dict, Any, List
 from dotenv import load_dotenv
-from logger import logger
 
 load_dotenv()
 
@@ -126,14 +126,17 @@ def generate_scout_report(graph_id: str, player_name: str, max_retries: int = 3,
     try:
         # Get KG data for context
         url = os.environ['KG_URL'] + '/search'
-        logger.info(f'requesting kg read action using url: {url}')
+        logging.info(
+                'Requesting KG read action.',
+                extra={'json_fields': {'url': url}})
 
         response = requests.get(url, params={'graph_id': graph_id, 'query': player_name})
         if response.status_code != 200 or not response.text:
-            logger.error(f'failed KG search request {response.text}')
+            logging.error(
+                'Failed KG search request.',
+                extra={'json_fields': {'response_text': response.text}})
             kg_data = {'entities': {}, 'relationships': []}
         else:
-            logger.info('received response from KG search')
             kg_data = response.json()
 
         # Build search info from KG data if available
@@ -300,8 +303,6 @@ Here is the knowledge graph result, use what you can from it to inform the searc
                     "tools": [{"googleSearch": {}}]
                 }
 
-                logger.info(f"Making Gemini REST API call to {model} (grounding=True)")
-
                 api_response = requests.post(
                     api_url,
                     json=payload,
@@ -311,7 +312,6 @@ Here is the knowledge graph result, use what you can from it to inform the searc
                 api_response.raise_for_status()
                 response = api_response.json()
 
-                logger.info(f"Received Gemini response")
                 break
             except Exception as api_error:
                 error_msg = str(api_error)
@@ -334,7 +334,15 @@ Here is the knowledge graph result, use what you can from it to inform the searc
         citation_sources = _extract_sources(response)
 
         if notes_with_citations and len(notes_with_citations) > 50:
-            logger.info(f"Generated scout report for {player_name}: {len(citation_sources)} sources")
+            logging.info(
+                    'Generated scout report',
+                    extra={
+                        'json_fields': {
+                            'player_name': player_name,
+                            'num_sources': len(citation_sources)
+                        }
+                    }
+            )
             return {
                 'notes': notes_with_citations,
                 'sources': citation_sources
@@ -346,5 +354,5 @@ Here is the knowledge graph result, use what you can from it to inform the searc
             }
 
     except Exception as e:
-        logger.error(f"Error generating scout report: {e}")
+        logging.error(f"Error generating scout report: {e}")
         raise

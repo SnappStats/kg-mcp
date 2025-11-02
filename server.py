@@ -1,12 +1,11 @@
 import asyncio
 import functools
 import json
+import logging
 import os
 import requests
 from dotenv import load_dotenv
 from typing import Annotated
-
-from logger import logger
 
 from fastmcp import FastMCP, Context
 from fastmcp.server.dependencies import get_http_headers
@@ -92,7 +91,9 @@ async def scout_report(
     graph_id = get_http_headers()['x-graph-id']
     user_id = get_http_headers().get('x-author-id','anonymous')
 
-    logger.info(f'processing scout report request for {user_id} and graph {graph_id}')
+    logging.info(
+        'Processing Scout Report request.',
+        extra={'json_fields': {'user_id': user_id, 'graph_id': graph_id}})
 
     loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(
