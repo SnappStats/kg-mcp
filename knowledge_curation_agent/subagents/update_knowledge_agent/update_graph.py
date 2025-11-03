@@ -16,22 +16,22 @@ load_dotenv()
 
 
 class InvalidUpdatedKnowledgeSubgraphError(Exception):
-        """Custom exception for invalid knowledge subgraph."""
-        def __init__(
-                self,
-                message: str,
-                missing_valence_entity_ids: set = None,
-                updated_knowledge_subgraph: dict = None):
-            super().__init__(message)
-            self.missing_valence_entity_ids = missing_valence_entity_ids
-            self.updated_knowledge_subgraph = updated_knowledge_subgraph
+    """Custom exception for invalid knowledge subgraph."""
+    def __init__(
+            self,
+            missing_valence_entity_ids: set = None,
+            updated_knowledge_subgraph: dict = None):
+        message = "Updated subgraph missing valence entities.",
+        super().__init__(message)
+        self.missing_valence_entity_ids = missing_valence_entity_ids
+        self.updated_knowledge_subgraph = updated_knowledge_subgraph
 
-        def __str__(self):
-            base_message = super().__str__()
-            base_message += f" Valence entity IDs: {self.missing_valence_entity_ids}."
-            base_message += f" Updated knowledge subgraph: {self.updated_knowledge_subgraph}."
+    def __str__(self):
+        base_message = super().__str__()
+        base_message += f" Valence entity IDs: {self.missing_valence_entity_ids}."
+        base_message += f" Updated knowledge subgraph: {self.updated_knowledge_subgraph}."
 
-            return base_message
+        return base_message
 
 
 def main(callback_context: CallbackContext, llm_response: LlmResponse) -> Optional[LlmResponse]:
@@ -76,7 +76,6 @@ def _update_graph(
     if missing_valence_entity_ids := _get_missing_entity_ids(
             graph=new_subgraph, required_entity_ids=valence_entity_ids):
         raise InvalidUpdatedKnowledgeSubgraphError(
-                message="Updated subgraph missing valence entities.",
                 missing_valence_entity_ids=missing_valence_entity_ids,
                 updated_knowledge_subgraph=new_subgraph
         )
@@ -300,17 +299,10 @@ def _fetch_knowledge_graph(graph_id: str) -> dict:
 
 def _store_knowledge_graph(knowledge_graph: dict, graph_id: str) -> None:
     """Stores the knowledge graph in the Google Cloud Storage bucket."""
-    entity_ids = set(knowledge_graph['entities'].keys())
-    terminals = set(rel['source_entity_id'] for rel in knowledge_graph['relationships']).union(
-        rel['target_entity_id'] for rel in knowledge_graph['relationships'])
-
-    if terminals - entity_ids:
-        logging.warning(f"Some relationships refer to non-existent entities: {terminals - entity_ids}")
-
     bucket = _get_bucket()
     blob = bucket.blob(f"{graph_id}.json")
     blob.upload_from_string(
-        json.dumps(knowledge_graph, indent=2), content_type="application/json"
+        json.dumps(knowledge_graph), content_type="application/json"
     )
 
 
@@ -327,6 +319,7 @@ def _splice_subgraph(
     '''Splices new_subgraph into the knowledge graph identified by graph_id,
     excising old_subgraph first.'''
 
+    # This is where to add a lock, to be removed either if graph is erroneous or stored.
     graph = _fetch_knowledge_graph(graph_id)
 
     # Excise old subgraph
@@ -351,4 +344,26 @@ def _splice_subgraph(
     graph['relationships'].extend(
             add_subgraph['relationships'])
 
-    _store_knowledge_graph(knowledge_graph=graph, graph_id=graph_id)
+    if invalid_entity_ids := _get_invalid_relationship_entity_ids(graph):
+        logging.warning(
+            'Graph delta not recorded due to invalid relationship entity IDs.',
+            extra={
+                'json_fields': {
+                    'graph_id': graph_id,
+                    'invalid_relationship_entity_ids': invalid_entity_ids
+                }
+            }
+        )
+    else:
+        _store_knowledge_graph(knowledge_graph=graph, graph_id=graph_id)
+
+
+@flog
+def _get_invalid_relationship_entity_ids(graph: dict) -> set:
+    '''Returns relationship between non-existent entities.'''
+
+    entity_ids = set(graph['entities'].keys())
+    terminals = set(rel['source_entity_id'] for rel in graph['relationships']).union(
+        rel['target_entity_id'] for rel in graph['relationships'])
+
+    return terminals - entity_ids
