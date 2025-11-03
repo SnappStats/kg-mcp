@@ -350,7 +350,7 @@ def _splice_subgraph(
             extra={
                 'json_fields': {
                     'graph_id': graph_id,
-                    'invalid_relationship_entity_ids': invalid_entity_ids
+                    'invalid_relationship_entity_ids': list(invalid_entity_ids)
                 }
             }
         )
