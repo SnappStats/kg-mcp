@@ -15,25 +15,6 @@ from .utils import generate_random_string, remove_nonalphanumeric
 load_dotenv()
 
 
-class InvalidUpdatedKnowledgeSubgraphError(Exception):
-    """Custom exception for invalid knowledge subgraph."""
-    def __init__(
-            self,
-            missing_valence_entity_ids: set = None,
-            updated_knowledge_subgraph: dict = None):
-        message = "Updated subgraph missing valence entities.",
-        super().__init__(message)
-        self.missing_valence_entity_ids = missing_valence_entity_ids
-        self.updated_knowledge_subgraph = updated_knowledge_subgraph
-
-    def __str__(self):
-        base_message = super().__str__()
-        base_message += f" Valence entity IDs: {self.missing_valence_entity_ids}."
-        base_message += f" Updated knowledge subgraph: {self.updated_knowledge_subgraph}."
-
-        return base_message
-
-
 def main(callback_context: CallbackContext, llm_response: LlmResponse) -> Optional[LlmResponse]:
     """
     Stores the provided graph in the knowledge graph store.
@@ -75,10 +56,17 @@ def _update_graph(
 
     if missing_valence_entity_ids := _get_missing_entity_ids(
             graph=new_subgraph, required_entity_ids=valence_entity_ids):
-        raise InvalidUpdatedKnowledgeSubgraphError(
-                missing_valence_entity_ids=missing_valence_entity_ids,
-                updated_knowledge_subgraph=new_subgraph
+        logging.error(
+            'Updated subgraph missing valence entities.',
+            extra={
+                'json_fields': {
+                    'missing_valence_entity_ids': missing_valence_entity_ids,
+                    'old_subgraph': old_subgraph,
+                    'new_subgraph': new_subgraph
+                }
+            }
         )
+        return
 
     # Remove relationships pointing to nonexistent entities.
     new_subgraph = _trim_fuzzy_relationships(
