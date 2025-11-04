@@ -109,7 +109,7 @@ def _extract_sources(response: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 @flog
-def generate_scout_report(graph_id: str, player_name: str, max_retries: int = 3, ctx=None) -> Dict[str, Any]:
+def generate_scout_report(graph_id: str, player_name: str, max_retries: int = 3) -> Dict[str, Any]:
     """
     Generate comprehensive scout report using Gemini with Google Search grounding.
     Returns text with citations and sources.
@@ -118,7 +118,6 @@ def generate_scout_report(graph_id: str, player_name: str, max_retries: int = 3,
         graph_id: Knowledge graph ID
         player_name: Player name to scout
         max_retries: Max retries for API calls
-        ctx: Optional context
 
     Returns:
         Dict with 'notes' (text with citations) and 'sources' (list of citation dicts)
