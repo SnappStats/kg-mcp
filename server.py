@@ -101,7 +101,6 @@ async def scout_report(
                 generate_scout_report,
                 graph_id=graph_id,
                 player_name=player_name,
-                ctx=ctx
             )
     )
 
