@@ -1,1 +1,1 @@
-from .agent import generate_scout_report
+from .agent import agent
