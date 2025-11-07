@@ -1,3 +1,3 @@
-from .agent import generate_scout_report
+from .agent import agent, set_model_response
 
-__all__ = ['generate_scout_report']
+__all__ = ['agent', 'set_model_response']
