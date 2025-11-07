@@ -8,13 +8,11 @@ class AnalysisItem(BaseModel):
     """
     title: str = Field(
         ...,
-        description="The category or title of the analysis item (e.g., 'Awards', 'Strengths', 'Weaknesses', 'Coach Quotes').",
-        examples="2023 All-Conference First Team"
+        description="The category or title of the analysis item (e.g., 'Awards', 'Strengths', 'Weaknesses', 'Coach Quotes')."
     )
     content: str = Field(
         ...,
-        description="The detailed content of the item (e.g., specific weakness, the quotes itself), in markdown format.",
-        examples="* Struggles with defensive close-outs.\n* Often gets beaten on the first step."
+        description="The detailed content of the item (e.g., specific weakness, the quotes itself), in markdown format."
     )
 
 
@@ -24,18 +22,15 @@ class Player(BaseModel):
     """
     name: str = Field(
         ...,
-        description="The full name of the player being scouted.",
-        examples="Jane E. Doe"
+        description="The full name of the player being scouted."
     )
     physicals: Dict[str, str] = Field(
         default_factory=dict,
-        description="The player's key physical attributes (e.g., {'Height': '6ft 8in', 'Weight': '240lbs'}).",
-        examples={"Height": "6ft 8in", "Weight": "240lbs"}
+        description="The player's key physical attributes (e.g., {'Height': '6ft 8in', 'Weight': '240lbs'})."
     )
     socials: Dict[str, str] = Field(
         default_factory=dict,
-        description="A map of social media platform names to the player's handle/username.",
-        examples={"Twitter": "@JaneDoeHoops", "Instagram": "janedoe_official"}
+        description="A map of social media platform names to the player's handle/username."
     )
 
 
@@ -49,8 +44,7 @@ class ScoutReport(BaseModel):
     )
     tags: List[str] = Field(
         default_factory=list,
-        description="Categorical tags for the report, including key identifying factors like **sport**, **school**, **team**, and **position**.",
-        examples=["Football", "USC", "Trojans", "Wide Receiver"]
+        description="Smart, searchable tags that make sense for this player. Include what's relevant and important for filtering/searching. Examples of useful tags: sport, position, high school (with 'High School:' prefix), location (City, ST or City, Country), grad year, college status (with 'College:' prefix, add '(committed)' if not enrolled), star rating with source in parentheses, additional sports. Be smart and flexible."
     )
     analysis: List[AnalysisItem] = Field(
         default_factory=list,
@@ -58,8 +52,7 @@ class ScoutReport(BaseModel):
     )
     stats: List[str] = Field(
         default_factory=list,
-        description="A list of relevant statistics, including game averages and **athletic measurables**.",
-        examples=["Bench Press: 315 lbs", "40 Yard Dash: 4.41s", "PPG: 22.5"]
+        description="A list of 3-6 key statistics - prioritize latest performance stats. Each stat should be a complete, self-explanatory statement with season/year. Format examples: '3,245 Passing Yards (2024/25)', '42 TD, 4 INT (2024/25)', '68.2% Completion (2024/25)'."
     )
     citations: List[str] = Field(
         default_factory=list,
