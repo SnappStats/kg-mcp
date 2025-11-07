@@ -1,76 +1,60 @@
+#!/usr/bin/env python3
 """
-Test script for Scout Report Agent
+Test script for Scout Report Agent (Two-Agent Approach)
 
 Usage:
-    doppler run -- python3 scout_report_agent/test_scout_agent.py "Player Name"
+    python3 scout_report_agent/test_scout_agent.py "Player Name"
 
 Example:
-    doppler run -- python3 scout_report_agent/test_scout_agent.py "Arch Manning"
+    python3 scout_report_agent/test_scout_agent.py "Arch Manning"
 """
 
 import os
 import sys
 import json
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scout_report_agent.agent import agent
-from google.adk.runners import Runner
-from google.adk.sessions import VertexAiSessionService
-from google.genai import types
+from scout_report_agent import generate_scout_report
 
 
 def test_scout_agent(player_name: str):
     """Test the scout report agent with a player name."""
 
     print(f"\n{'='*80}")
-    print(f"Testing Scout Report Agent")
+    print(f"Testing Scout Report Agent (Two-Agent Approach)")
     print(f"Player: {player_name}")
     print(f"{'='*80}\n")
 
     try:
-        # Get SESSION_SERVICE_URI from environment
-        session_service_uri = os.environ.get('SESSION_SERVICE_URI')
-        if not session_service_uri:
-            print("ERROR: SESSION_SERVICE_URI not found in environment")
-            print("Make sure you're running with doppler: doppler run -- python3 ...")
-            return None
-
-        agent_engine_id = session_service_uri.split('/')[-1]
-
-        # Create session service
-        session_service = VertexAiSessionService(agent_engine_id=agent_engine_id)
-
-        # Create a runner for the agent
-        runner = Runner(
-            agent=agent,
-            app_name=agent_engine_id,
-            session_service=session_service
-        )
-
         print(f"Generating scout report for {player_name}...\n")
         print("This may take 30-60 seconds as the agent researches...\n")
 
-        # Create user message
-        user_content = types.Content(
-            role='user',
-            parts=[types.Part(text=player_name)]
-        )
-
-        # Run the agent synchronously
-        result = runner.run(new_message=user_content)
+        # Call the generate_scout_report function
+        result = generate_scout_report(player_name)
 
         # Print the result
         print(f"\n{'='*80}")
         print(f"RESULT")
         print(f"{'='*80}\n")
 
-        # The result should be a ScoutReport object
-        if hasattr(result, 'model_dump_json'):
-            # Pydantic model - ScoutReport
-            result_json = json.loads(result.model_dump_json())
+        # Check result type
+        if result["type"] == "feedback":
+            # Feedback message for clarification
+            print("FEEDBACK MESSAGE (would be shown to root agent):")
+            print(result["message"])
+        elif result["type"] == "scout_report":
+            # Success - got a scout report
+            scout_report = result["data"]
+
+            # Convert to JSON for display
+            result_json = json.loads(scout_report.model_dump_json())
             print(json.dumps(result_json, indent=2))
 
             print(f"\n--- Summary ---")
@@ -78,6 +62,7 @@ def test_scout_agent(player_name: str):
             print(f"Tags: {', '.join(result_json.get('tags', []))}")
             print(f"Analysis sections: {len(result_json.get('analysis', []))}")
             print(f"Stats: {len(result_json.get('stats', []))}")
+            print(f"  {result_json.get('stats', [])}")
             print(f"Citations: {len(result_json.get('citations', []))}")
 
             # Show first analysis item as example
@@ -87,7 +72,7 @@ def test_scout_agent(player_name: str):
                 content = first_analysis.get('content', '')
                 print(f"Content preview ({len(content)} chars): {content[:300]}...")
         else:
-            print(result)
+            print(f"Unknown result type: {result}")
 
         print(f"\n{'='*80}")
         print(f"Test completed successfully!")
@@ -107,8 +92,8 @@ def test_scout_agent(player_name: str):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: doppler run -- python3 scout_report_agent/test_scout_agent.py \"Player Name\"")
-        print("Example: doppler run -- python3 scout_report_agent/test_scout_agent.py \"Arch Manning\"")
+        print("Usage: python3 scout_report_agent/test_scout_agent.py \"Player Name\"")
+        print("Example: python3 scout_report_agent/test_scout_agent.py \"Arch Manning\"")
         sys.exit(1)
 
     player_name = " ".join(sys.argv[1:])
