@@ -84,7 +84,21 @@ def format_to_schema(research_notes: str, sources: list[str]) -> ScoutReport:
 
     # Parse the JSON response into ScoutReport
     try:
-        return ScoutReport.model_validate_json(response.text)
+        import json
+
+        def stringify_all(obj):
+            """Recursively convert all values to strings"""
+            if isinstance(obj, dict):
+                return {k: stringify_all(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [stringify_all(item) for item in obj]
+            else:
+                return str(obj)
+
+        data = json.loads(response.text)
+        data = stringify_all(data)
+
+        return ScoutReport.model_validate(data)
     except Exception as e:
         # Debug: print the response text to see what went wrong
         print(f"Error parsing JSON response: {e}")
