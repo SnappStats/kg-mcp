@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scout_report_agent.agent import agent
 from google.adk.runners import Runner
+from google.adk.sessions import VertexAiSessionService
 from google.genai import types
 
 
@@ -30,8 +31,24 @@ def test_scout_agent(player_name: str):
     print(f"{'='*80}\n")
 
     try:
+        # Get SESSION_SERVICE_URI from environment
+        session_service_uri = os.environ.get('SESSION_SERVICE_URI')
+        if not session_service_uri:
+            print("ERROR: SESSION_SERVICE_URI not found in environment")
+            print("Make sure you're running with doppler: doppler run -- python3 ...")
+            return None
+
+        agent_engine_id = session_service_uri.split('/')[-1]
+
+        # Create session service
+        session_service = VertexAiSessionService(agent_engine_id=agent_engine_id)
+
         # Create a runner for the agent
-        runner = Runner(agent=agent, app_name="test_scout_report")
+        runner = Runner(
+            agent=agent,
+            app_name=agent_engine_id,
+            session_service=session_service
+        )
 
         print(f"Generating scout report for {player_name}...\n")
         print("This may take 30-60 seconds as the agent researches...\n")
@@ -67,7 +84,8 @@ def test_scout_agent(player_name: str):
             if result_json.get('analysis'):
                 first_analysis = result_json['analysis'][0]
                 print(f"\nFirst Analysis Section: {first_analysis.get('title', 'N/A')}")
-                print(f"Content preview: {first_analysis.get('content', '')[:200]}...")
+                content = first_analysis.get('content', '')
+                print(f"Content preview ({len(content)} chars): {content[:300]}...")
         else:
             print(result)
 
