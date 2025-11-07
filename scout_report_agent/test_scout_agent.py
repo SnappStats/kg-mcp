@@ -2,10 +2,10 @@
 Test script for Scout Report Agent
 
 Usage:
-    python scout_report_agent/test_scout_agent.py "Player Name"
+    doppler run -- python3 scout_report_agent/test_scout_agent.py "Player Name"
 
 Example:
-    python scout_report_agent/test_scout_agent.py "Arch Manning"
+    doppler run -- python3 scout_report_agent/test_scout_agent.py "Arch Manning"
 """
 
 import os
@@ -16,7 +16,9 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scout_report_agent.agent import generate_scout_report
+from scout_report_agent.agent import agent
+from google.adk.runners import Runner
+from google.genai import types
 
 
 def test_scout_agent(player_name: str):
@@ -28,25 +30,44 @@ def test_scout_agent(player_name: str):
     print(f"{'='*80}\n")
 
     try:
-        # Run the agent (need to pass graph_id)
+        # Create a runner for the agent
+        runner = Runner(agent=agent, app_name="test_scout_report")
+
         print(f"Generating scout report for {player_name}...\n")
-        graph_id = os.getenv('GRAPH_ID', 'test_graph')
-        result = generate_scout_report(graph_id, player_name)
+        print("This may take 30-60 seconds as the agent researches...\n")
+
+        # Create user message
+        user_content = types.Content(
+            role='user',
+            parts=[types.Part(text=player_name)]
+        )
+
+        # Run the agent synchronously
+        result = runner.run(new_message=user_content)
 
         # Print the result
         print(f"\n{'='*80}")
         print(f"RESULT")
         print(f"{'='*80}\n")
 
-        if isinstance(result, dict):
-            # Pretty print the dict result
-            print(json.dumps(result, indent=2))
+        # The result should be a ScoutReport object
+        if hasattr(result, 'model_dump_json'):
+            # Pydantic model - ScoutReport
+            result_json = json.loads(result.model_dump_json())
+            print(json.dumps(result_json, indent=2))
+
             print(f"\n--- Summary ---")
-            print(f"Notes length: {len(result.get('notes', ''))} characters")
-            print(f"Number of sources: {len(result.get('sources', []))}")
-        elif hasattr(result, 'model_dump_json'):
-            # Legacy Pydantic model support
-            print(json.dumps(json.loads(result.model_dump_json()), indent=2))
+            print(f"Player: {result_json.get('player', {}).get('name', 'N/A')}")
+            print(f"Tags: {', '.join(result_json.get('tags', []))}")
+            print(f"Analysis sections: {len(result_json.get('analysis', []))}")
+            print(f"Stats: {len(result_json.get('stats', []))}")
+            print(f"Citations: {len(result_json.get('citations', []))}")
+
+            # Show first analysis item as example
+            if result_json.get('analysis'):
+                first_analysis = result_json['analysis'][0]
+                print(f"\nFirst Analysis Section: {first_analysis.get('title', 'N/A')}")
+                print(f"Content preview: {first_analysis.get('content', '')[:200]}...")
         else:
             print(result)
 
@@ -68,8 +89,8 @@ def test_scout_agent(player_name: str):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python scout_report_agent/test_scout_agent.py \"Player Name\"")
-        print("Example: python scout_report_agent/test_scout_agent.py \"Arch Manning\"")
+        print("Usage: doppler run -- python3 scout_report_agent/test_scout_agent.py \"Player Name\"")
+        print("Example: doppler run -- python3 scout_report_agent/test_scout_agent.py \"Arch Manning\"")
         sys.exit(1)
 
     player_name = " ".join(sys.argv[1:])
