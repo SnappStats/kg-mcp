@@ -1,28 +1,21 @@
 import asyncio
-import datetime as dt
-import functools
 import json
-import logging
 import os
 import requests
 from dotenv import load_dotenv
 from typing import Annotated
 
-from fastmcp import FastMCP, Context
+from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_http_headers
-
-from google.adk.runners import Runner
-from google.adk.sessions import VertexAiSessionService
-from google.genai import types
 
 from opentelemetry import trace
 from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
 from opentelemetry.sdk.trace import export
 from opentelemetry.sdk.trace import TracerProvider
 
-from knowledge_curation_agent import agent as knowledge_curation_agent
-from scout_report_agent.agent import agent as scout_report_agent
-from scout_report_agent.scout_report_service import fetch_scout_report, store_scout_report
+from knowledge_curation_agent.main import main as _curate_knowledge
+from scout_report_agent.main import main as _fetch_scout_report
+from scout_report_agent.scout_report_service import fetch_scout_report
 
 # Load environment variables from .env file in root directory
 load_dotenv()
@@ -34,40 +27,8 @@ processor = export.BatchSpanProcessor(
 provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
 
-AGENT_ENGINE_ID = os.environ['SESSION_SERVICE_URI'].split('/')[-1]
-
-session_service = VertexAiSessionService(
-    agent_engine_id=AGENT_ENGINE_ID,
-)
-
-knowledge_curation_agent_runner = Runner(
-    agent=knowledge_curation_agent,
-    app_name=AGENT_ENGINE_ID,
-    session_service=session_service
-)
-
-scout_report_agent_runner = Runner(
-    agent=scout_report_agent,
-    app_name=AGENT_ENGINE_ID,
-    session_service=session_service
-)
 
 mcp = FastMCP("knowledge_graph")
-
-async def _curate_knowledge(graph_id: str, user_id: str, query: str):
-    session = await session_service.create_session(
-            app_name=AGENT_ENGINE_ID,
-            user_id=user_id,
-            state={'graph_id': graph_id})
-
-    user_content = types.Content(role='user', parts=[types.Part(text=query)])
-    qwer = knowledge_curation_agent_runner.run_async(
-            user_id=user_id, session_id=session.id, new_message=user_content)
-
-    # Need this line.... Is there a good replacement?
-    async for event in qwer:
-        pass
-
 
 @mcp.tool(
         name='curate_knowledge',
@@ -84,32 +45,6 @@ async def curate_knowledge(
                 graph_id=graph_id, user_id=user_id, query=query))
 
     return 'This is being taken care of.'
-
-
-async def _fetch_scout_report(graph_id: str, user_id: str, query: str):
-    session = await session_service.create_session(
-            app_name=AGENT_ENGINE_ID,
-            user_id=user_id,
-            state={'graph_id': graph_id})
-
-    user_content = types.Content(role='user', parts=[types.Part(text=query)])
-    qwer = scout_report_agent_runner.run_async(
-            user_id=user_id, session_id=session.id, new_message=user_content)
-
-    async for event in qwer:
-        if content := event.content:
-            if parts := content.parts:
-                if function_response := parts[0].function_response:
-                    if function_response.name == 'set_model_response':
-                        if 'player' in (scout_report := function_response.response):
-                            utc_now = dt.datetime.now(dt.UTC)\
-                                    .isoformat(timespec='seconds')
-                            scout_report.update({'report_at': utc_now})
-                            scout_report_id = store_scout_report(scout_report)
-
-                            return scout_report
-        if event.is_final_response():
-            return {'text': event.content.parts[0].text}
 
 
 @mcp.tool(
