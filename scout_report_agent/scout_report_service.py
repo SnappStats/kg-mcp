@@ -1,11 +1,15 @@
 import json
+import os
 from floggit import flog
+from dotenv import load_dotenv
 from .utils import generate_random_string
 
-from google.cloud import storage
+load_dotenv()
 
-storage_client = storage.Client()
-bucket = storage_client.get_bucket('snappstats-scout-reports')
+from pymongo import MongoClient
+mongo_client = MongoClient(os.environ['MONGO_URI'])
+database = mongo_client.get_database('snappstats')
+reports_collection = database.get_collection('reports')
 
 @flog
 def fetch_scout_report(scout_report_id: str) -> dict:
@@ -15,14 +19,12 @@ def fetch_scout_report(scout_report_id: str) -> dict:
     Returns:
         dict: A Scout Report
     '''
-    blob = bucket.blob(scout_report_id)
-    if not blob.exists():
-        scout_report = {}
-    else:
-        scout_report = json.loads(blob.download_as_text())
+    report = reports_collection.find_one({'id': scout_report_id})
 
-    return scout_report
+    if report:
+        del report['_id']
 
+    return report
 
 @flog
 def store_scout_report(scout_report: dict) -> str:
@@ -30,9 +32,7 @@ def store_scout_report(scout_report: dict) -> str:
     scout_report_id = generate_random_string()
     scout_report.update({'id': scout_report_id})
 
-    blob = bucket.blob(scout_report_id)
-    blob.upload_from_string(
-        json.dumps(scout_report), content_type="application/json"
-    )
+    reports_collection.replace_one(
+            {'id': scout_report_id}, scout_report, upsert=True)
 
     return scout_report_id
