@@ -59,7 +59,7 @@ agent = Agent(
                 url=os.environ['KG_MCP_SERVER'],
                 headers={'x-graph-id': GRAPH_ID},
             ),
-            tool_filter=['curate_knowledge', 'get_scout_report'],
+            tool_filter=['curate_knowledge', 'generate_scout_report'],
         ),
     ],
 )

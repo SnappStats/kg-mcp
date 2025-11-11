@@ -48,8 +48,10 @@ async def curate_knowledge(
 
 
 @mcp.tool(
-        name='get_scout_report',
-        description='This tool fetches a Scout Report for a player, given their name and sufficient disambiguating context.'
+        name='generate_scout_report',
+        description=
+        'This tool generates a Scout Report for a player from scratch. Provide the player name and sufficient disambiguating context for a sports athlete.' \
+        'This creates a NEW report through analysis and should only be used when a stored scout report via other tools is NOT available. ' \
 )
 async def scout_report(
         player_context: Annotated[str, "Player name and disambiguating context."]
