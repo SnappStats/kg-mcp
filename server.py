@@ -73,7 +73,7 @@ async def scout_report(
 
 @mcp.tool(
         name='fetch_scout_report_by_id',
-        description="This tool returns a player's Scout Report given its Scout Report ID."
+        description="This tool returns a player's Scout Report given its Scout Report ID.  Only use this if you have a Scout Report ID."
 )
 async def fetch_scout_report_by_id(
         scout_report_id: Annotated[str, "The ID of a Scout Report."]
