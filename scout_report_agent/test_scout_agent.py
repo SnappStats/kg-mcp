@@ -58,14 +58,14 @@ async def test_scout_agent(player_name: str):
         test_agent = Agent(
             name="test_scout_agent",
             model="gemini-2.5-flash",
-            instruction=f"Call the get_scout_report tool with the player query: {player_name}",
+            instruction=f"Call the generate_scout_report tool with the player query: {player_name}",
             tools=[
                 McpToolset(
                     connection_params=StreamableHTTPConnectionParams(
                         url=os.environ['KG_MCP_SERVER'],
                         headers={'x-graph-id': GRAPH_ID},
                     ),
-                    tool_filter=['get_scout_report'],
+                    tool_filter=['generate_scout_report'],
                 ),
             ],
         )
@@ -100,7 +100,7 @@ async def test_scout_agent(player_name: str):
                 if hasattr(event.content, 'parts') and event.content.parts:
                     for part in event.content.parts:
                         if hasattr(part, 'function_response') and part.function_response:
-                            if part.function_response.name == 'get_scout_report':
+                            if part.function_response.name == 'generate_scout_report':
                                 # Response might be dict or JSON string
                                 response = part.function_response.response
                                 if isinstance(response, str):
