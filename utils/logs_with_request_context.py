@@ -2,6 +2,9 @@ from functools import wraps
 from typing import Callable, TypeVar, ParamSpec
 import inspect
 
+from fastmcp.server.dependencies import get_http_headers
+from utils.logger import logger
+
 P = ParamSpec('P')
 R = TypeVar('R')
 
