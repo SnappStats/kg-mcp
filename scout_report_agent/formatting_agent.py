@@ -6,6 +6,7 @@ import os
 from google import genai
 from google.genai import types
 from .scout_report_schema import ScoutReport
+from utils.logger import logger
 
 FORMATTING_PROMPT = '''
 You are converting comprehensive research notes into a structured scout report.
@@ -39,6 +40,7 @@ Convert the research notes below into a structured scout report.
 '''
 
 
+@logger.catch
 def format_to_schema(research_notes: str, sources: list[str]) -> ScoutReport:
     """
     Convert research notes to structured ScoutReport using Gemini.
@@ -79,7 +81,7 @@ def format_to_schema(research_notes: str, sources: list[str]) -> ScoutReport:
             )
         )
     except Exception as e:
-        print(f"Error calling Gemini API: {e}")
+        logger.exception("formatting agent raised an exception")
         raise
 
     # Parse the JSON response into ScoutReport
@@ -100,9 +102,8 @@ def format_to_schema(research_notes: str, sources: list[str]) -> ScoutReport:
 
         return ScoutReport.model_validate(data)
     except Exception as e:
-        # Debug: print the response text to see what went wrong
-        print(f"Error parsing JSON response: {e}")
-        print(f"Response text length: {len(response.text)}")
-        print(f"Response text (first 500 chars): {response.text[:500]}")
-        print(f"Response text (last 500 chars): {response.text[-500:]}")
+        logger.exception(
+            "failed to parse formatting agent output",
+            response_text=response.text
+        )
         raise

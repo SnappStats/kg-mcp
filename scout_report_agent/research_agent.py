@@ -7,6 +7,7 @@ import os
 import requests
 from google import genai
 from google.genai import types
+from utils.logger import logger
 
 RESEARCH_PROMPT = '''
 **CONTEXT: This report is for a COACHING STAFF making recruiting decisions. Quality and credibility are CRITICAL.**
@@ -115,7 +116,7 @@ If player cannot be identified or is ambiguous, start your response with:
 - "NOT FOUND: I couldn't find an athlete matching '[name]'. [explanation and suggestions]"
 '''
 
-
+@logger.catch
 def research_player(player_query: str) -> dict:
     """
     Research a player using Gemini with grounded search.
@@ -142,6 +143,7 @@ def research_player(player_query: str) -> dict:
             )
         )
     except Exception as e:
+        logger.exception("research agent raised an exception")
         return {
             "status": "feedback",
             "message": f"Error during research: {str(e)}"

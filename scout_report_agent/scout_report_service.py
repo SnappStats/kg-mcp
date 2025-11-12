@@ -3,6 +3,7 @@ import os
 from floggit import flog
 from dotenv import load_dotenv
 from .utils import generate_random_string
+from utils.logger import logger
 
 load_dotenv()
 
@@ -12,6 +13,7 @@ database = mongo_client.get_database('snappstats')
 reports_collection = database.get_collection('reports')
 
 @flog
+@logger.catch
 def fetch_scout_report(scout_report_id: str) -> dict:
     '''
     Args:
@@ -27,6 +29,7 @@ def fetch_scout_report(scout_report_id: str) -> dict:
     return report
 
 @flog
+@logger.catch
 def store_scout_report(scout_report: dict) -> str:
     """Stores the knowledge graph in the Google Cloud Storage bucket."""
     scout_report_id = generate_random_string()
