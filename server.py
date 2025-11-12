@@ -1,6 +1,5 @@
 import asyncio
 import json
-import logging
 import os
 import requests
 from dotenv import load_dotenv
@@ -18,16 +17,20 @@ from knowledge_curation_agent.main import main as _curate_knowledge
 from scout_report_agent.main import main as _fetch_scout_report
 from scout_report_agent.scout_report_service import fetch_scout_report
 from logging_config import configure_logging, set_trace_id
+from loguru import logger
 
 # Load environment variables from .env file in root directory
 load_dotenv()
 
-# Configure logging with trace ID injection
+# Configure loguru with trace ID injection
 configure_logging()
-logger = logging.getLogger(__name__)
 
 def _safe_serialize(obj):
-    """Safely serialize any object for logging - handles non-JSON-serializable types"""
+    """
+    Safely serialize any object for logging - handles non-JSON-serializable types.
+    Never raises exceptions - always returns something loggable.
+    """
+    # Fast path for simple types
     if obj is None or isinstance(obj, (str, int, float, bool)):
         return obj
 
@@ -35,17 +38,34 @@ def _safe_serialize(obj):
         # Try JSON serialization to validate it's safe (also checks for circular refs)
         json.dumps(obj)
         return obj
-    except (TypeError, ValueError, OverflowError):
+    except (TypeError, ValueError, OverflowError, RecursionError):
         # If not JSON-serializable (includes circular refs, custom objects), convert to string
         try:
-            return str(obj)
+            result = str(obj)
+            # Limit length to prevent massive log entries
+            if len(result) > 10000:
+                return result[:10000] + f"... (truncated, total length: {len(result)})"
+            return result
         except Exception:
             # If even str() fails, return type info
-            return f"<{type(obj).__name__} object (unserializable)>"
+            try:
+                return f"<{type(obj).__name__} object (unserializable)>"
+            except Exception:
+                # Absolute fallback
+                return "<unknown object>"
+
 
 def _log_fields(**kwargs):
-    """Helper to log fields dynamically - safely serializes all values"""
-    return {k: _safe_serialize(v) for k, v in kwargs.items()}
+    """
+    Helper to log fields dynamically - safely serializes all values.
+    Filters out None values and handles any exceptions gracefully.
+    """
+    try:
+        # Serialize and filter out None values to reduce log noise
+        return {k: _safe_serialize(v) for k, v in kwargs.items() if v is not None}
+    except Exception:
+        # If anything goes wrong, return empty dict to not break logging
+        return {}
 
 provider = TracerProvider()
 processor = export.BatchSpanProcessor(
@@ -73,12 +93,9 @@ async def curate_knowledge(
     set_trace_id(trace_id)
 
     # Log tool input (flexible - pass all fields dynamically)
-    logger.info(
-        "curate_knowledge called",
-        extra={'json_fields': {'tool': 'curate_knowledge', **_log_fields(
-            query=query, graph_id=graph_id, user_id=user_id
-        )}}
-    )
+    logger.bind(tool='curate_knowledge', **_log_fields(
+        query=query, graph_id=graph_id, user_id=user_id
+    )).info("curate_knowledge called")
 
     # Create background task with trace ID propagation
     async def _run_with_trace():
@@ -90,10 +107,7 @@ async def curate_knowledge(
     result = 'This is being taken care of.'
 
     # Log tool output (flexible - pass result directly)
-    logger.info(
-        "curate_knowledge completed",
-        extra={'json_fields': {'tool': 'curate_knowledge', 'result': _safe_serialize(result)}}
-    )
+    logger.bind(tool='curate_knowledge', result=_safe_serialize(result)).info("curate_knowledge completed")
     return result
 
 
@@ -115,21 +129,15 @@ async def scout_report(
     set_trace_id(trace_id)
 
     # Log tool input (flexible - pass all fields dynamically)
-    logger.info(
-        "generate_scout_report called",
-        extra={'json_fields': {'tool': 'generate_scout_report', **_log_fields(
-            player_context=player_context, graph_id=graph_id, user_id=user_id
-        )}}
-    )
+    logger.bind(tool='generate_scout_report', **_log_fields(
+        player_context=player_context, graph_id=graph_id, user_id=user_id
+    )).info("generate_scout_report called")
 
     result = await _fetch_scout_report(
             graph_id=graph_id, user_id=user_id, query=player_context)
 
     # Log tool output (flexible - pass result directly)
-    logger.info(
-        "generate_scout_report completed",
-        extra={'json_fields': {'tool': 'generate_scout_report', 'result': _safe_serialize(result)}}
-    )
+    logger.bind(tool='generate_scout_report', result=_safe_serialize(result)).info("generate_scout_report completed")
 
     if 'player' in result:
         message = f"""{result['player']} has property "Scout Report ID" with value "{result['id']}"."""
@@ -157,20 +165,14 @@ async def fetch_scout_report_by_id(
     set_trace_id(trace_id)
 
     # Log tool input (flexible - pass all fields dynamically)
-    logger.info(
-        "fetch_scout_report_by_id called",
-        extra={'json_fields': {'tool': 'fetch_scout_report_by_id', **_log_fields(
-            scout_report_id=scout_report_id, graph_id=graph_id
-        )}}
-    )
+    logger.bind(tool='fetch_scout_report_by_id', **_log_fields(
+        scout_report_id=scout_report_id, graph_id=graph_id
+    )).info("fetch_scout_report_by_id called")
 
     result = fetch_scout_report(scout_report_id)
 
     # Log tool output (flexible - pass result directly)
-    logger.info(
-        "fetch_scout_report_by_id completed",
-        extra={'json_fields': {'tool': 'fetch_scout_report_by_id', 'result': _safe_serialize(result)}}
-    )
+    logger.bind(tool='fetch_scout_report_by_id', result=_safe_serialize(result)).info("fetch_scout_report_by_id completed")
 
     return result
 
@@ -190,21 +192,15 @@ async def search_knowledge_graph(
     set_trace_id(trace_id)
 
     # Log tool input (flexible - pass all fields dynamically)
-    logger.info(
-        "search_knowledge_graph called",
-        extra={'json_fields': {'tool': 'search_knowledge_graph', **_log_fields(
-            query=query, graph_id=graph_id
-        )}}
-    )
+    logger.bind(tool='search_knowledge_graph', **_log_fields(
+        query=query, graph_id=graph_id
+    )).info("search_knowledge_graph called")
 
     url = os.environ['KG_URL'] + '/search'
     r = requests.get(url, params={'query': query, 'graph_id': graph_id})
     result = r.json()
 
     # Log tool output (flexible - pass result directly)
-    logger.info(
-        "search_knowledge_graph completed",
-        extra={'json_fields': {'tool': 'search_knowledge_graph', 'status_code': r.status_code, 'result': _safe_serialize(result)}}
-    )
+    logger.bind(tool='search_knowledge_graph', status_code=r.status_code, result=_safe_serialize(result)).info("search_knowledge_graph completed")
 
     return result

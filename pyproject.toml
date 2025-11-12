@@ -17,4 +17,5 @@ dependencies = [
     "floggit>=0.0.19",
     "requests>=2.32.5",
     "pymongo>=4.15.3",
+    "loguru>=0.7.3",
 ]
