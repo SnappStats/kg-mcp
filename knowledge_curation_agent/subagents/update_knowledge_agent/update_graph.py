@@ -229,35 +229,44 @@ def _restore_original_IDs(
 
 
 @flog
-def _identify_minimal_subgraph_delta(new_subgraph: dict, old_subgraph: dict) -> dict:
+def _identify_minimal_subgraph_delta(new_subgraph: dict, old_subgraph: dict) -> tuple[dict, dict]:
     '''Identifies the minimal subgraphs to delete and add.
 
     An entity/relationship should be removed if it exists in old_subgraph but not in new_subgraph.
     An entity/relationship should be added if it exists in new_subgraph but not in old_subgraph.
+    If an entity exists in both but with different content, it should be removed and re-added.
 
     Args:
         new_subgraph (dict): The new subgraph.
         old_subgraph (dict): The old subgraph.
 
     Returns:
-        dict: The subgraphs to remove and add.
+        tuple: A tuple of (remove_subgraph, add_subgraph) dicts.
     '''
 
     add_subgraph = {'entities': {}, 'relationships': []}
-    add_subgraph['entities'] = {
-            k: v for k, v in new_subgraph['entities'].items()
-            if k not in old_subgraph['entities']
-    }
+    remove_subgraph = {'entities': {}, 'relationships': []}
+
+    # Check for new or modified entities
+    for entity_id, new_entity in new_subgraph['entities'].items():
+        if entity_id not in old_subgraph['entities']:
+            # New entity - just add it
+            add_subgraph['entities'][entity_id] = new_entity
+        elif new_entity != old_subgraph['entities'][entity_id]:
+            # Entity exists but content changed - remove old, add new
+            remove_subgraph['entities'][entity_id] = old_subgraph['entities'][entity_id]
+            add_subgraph['entities'][entity_id] = new_entity
+
+    # Check for removed entities
+    for entity_id in old_subgraph['entities']:
+        if entity_id not in new_subgraph['entities']:
+            remove_subgraph['entities'][entity_id] = old_subgraph['entities'][entity_id]
+
+    # Handle relationships
     add_subgraph['relationships'] = [
             rel for rel in new_subgraph['relationships']
             if rel not in old_subgraph['relationships']
     ]
-
-    remove_subgraph = {'entities': {}, 'relationships': []}
-    remove_subgraph['entities'] = {
-            k: v for k, v in old_subgraph['entities'].items()
-            if k not in new_subgraph['entities']
-    }
     remove_subgraph['relationships'] = [
             rel for rel in old_subgraph['relationships']
             if rel not in new_subgraph['relationships']
@@ -343,7 +352,7 @@ def _splice_subgraph(
             }
         )
     else:
-        _store_knowledge_graph(knowledge_graph=graph, graph_id=graph_id)
+        # _store_knowledge_graph(knowledge_graph=graph, graph_id=graph_id)
 
 
 @flog
