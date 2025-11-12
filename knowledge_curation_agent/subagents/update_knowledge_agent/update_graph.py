@@ -245,6 +245,10 @@ def _identify_minimal_subgraph_delta(new_subgraph: dict, old_subgraph: dict) -> 
     '''
 
     add_subgraph = {'entities': {}, 'relationships': []}
+    add_subgraph['entities'] = {
+        k: v for k, v in new_subgraph['entities'].items()
+        if k not in old_subgraph['entities']
+    }
     remove_subgraph = {'entities': {}, 'relationships': []}
 
     # Check for new or modified entities
@@ -267,6 +271,10 @@ def _identify_minimal_subgraph_delta(new_subgraph: dict, old_subgraph: dict) -> 
             rel for rel in new_subgraph['relationships']
             if rel not in old_subgraph['relationships']
     ]
+    remove_subgraph['entities'] = {
+        k: v for k, v in old_subgraph['entities'].items()
+        if k not in new_subgraph['entities']
+    }
     remove_subgraph['relationships'] = [
             rel for rel in old_subgraph['relationships']
             if rel not in new_subgraph['relationships']
@@ -352,7 +360,7 @@ def _splice_subgraph(
             }
         )
     else:
-        # _store_knowledge_graph(knowledge_graph=graph, graph_id=graph_id)
+        _store_knowledge_graph(knowledge_graph=graph, graph_id=graph_id)
 
 
 @flog
