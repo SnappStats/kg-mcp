@@ -16,6 +16,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from knowledge_curation_agent.main import main as _curate_knowledge
 from scout_report_agent.main import main as _fetch_scout_report
 from scout_report_agent.scout_report_service import fetch_scout_report
+from utils.logger import logger, _log_fields, _safe_serialize
+from utils.logs_with_request_context import log_with_request_context
 
 # Load environment variables from .env file in root directory
 load_dotenv()
@@ -34,16 +36,20 @@ mcp = FastMCP("knowledge_graph")
         name='curate_knowledge',
         description='This tool records knowledge in the knowledge base. It should be called whenever potentially new or updated relevant knowledge (e.g. entities, their properties, and their inter-relationships) is encountered. This can also include removing outdated or incorrect knowledge.'
 )
+@log_with_request_context
 async def curate_knowledge(
         query: Annotated[str, "A snippet of text or a document that contains potentially new or updated knowledge."],
 ) -> str:
-    graph_id = get_http_headers()['x-graph-id']
-    user_id = get_http_headers().get('x-author-id','anonymous')
+    headers = get_http_headers()
+    graph_id = headers['x-graph-id']
+    user_id = headers.get('x-author-id', 'anonymous')
 
-    asyncio.create_task(
-            _curate_knowledge(
-                graph_id=graph_id, user_id=user_id, query=query))
+    logger.info("curate_knowledge called", query=query)
 
+    asyncio.create_task(_curate_knowledge(graph_id=graph_id, user_id=user_id, query=query))
+
+    logger.info("curate_knowledge completed")
+    
     return 'This is being taken care of.'
 
 
@@ -53,20 +59,29 @@ async def curate_knowledge(
         'This tool generates a Scout Report for a player from scratch. Provide the player name and sufficient disambiguating context for a sports athlete.' \
         'This creates a NEW report through analysis and should only be used when a stored scout report via other tools is NOT available. ' \
 )
-async def scout_report(
+@log_with_request_context
+async def generate_scout_report(
         player_context: Annotated[str, "Player name and disambiguating context."]
 ) -> str:
-    graph_id = get_http_headers()['x-graph-id']
-    user_id = get_http_headers().get('x-author-id','anonymous')
+    headers = get_http_headers()
+    graph_id = headers['x-graph-id']
+    user_id = headers.get('x-author-id', 'anonymous')
+
+    logger.info("generate_scout_report called", **_log_fields(
+        player_context=player_context
+    ))
 
     result = await _fetch_scout_report(
             graph_id=graph_id, user_id=user_id, query=player_context)
 
+    logger.info("generate_scout_report completed", **_log_fields(
+        resutlt=result
+    ))
+
     if 'player' in result:
         message = f"""{result['player']} has property "Scout Report ID" with value "{result['id']}"."""
-        asyncio.create_task(
-                _curate_knowledge(
-                    graph_id=graph_id, user_id=user_id, query=message))
+        logger.info('player found in generate scout report result, proceeding to curate knowledge')
+        asyncio.create_task(_curate_knowledge(graph_id=graph_id, user_id=user_id, query=message))
 
     return json.dumps(result)
 
@@ -75,24 +90,45 @@ async def scout_report(
         name='fetch_scout_report_by_id',
         description="This tool returns a player's Scout Report given its Scout Report ID.  Only use this if you have a Scout Report ID."
 )
+@log_with_request_context
 async def fetch_scout_report_by_id(
         scout_report_id: Annotated[str, "The ID of a Scout Report."]
 ) -> dict:
-    graph_id = get_http_headers()['x-graph-id']
+    headers = get_http_headers()
+    graph_id = headers['x-graph-id']
 
-    return fetch_scout_report(scout_report_id)
+    logger.info("fetch_scout_report_by_id called", *_log_fields(
+        scout_report_id=scout_report_id
+    ))
+
+    result = fetch_scout_report(scout_report_id)
+
+    logger.info("fetch_scout_report_by_id completed", *_log_fields(
+        result=result
+    ))
+
+    return result
 
 
 @mcp.tool(
         name='search_knowledge_graph',
         description='This tool returns entities (e.g. players, teams, schools), their properties (e.g. Entity ID, Scout Report IDs, awards, personal info), and their inter-relationships, coming from the dynamic Knowledge Graph.'
 )
+@log_with_request_context
 async def search_knowledge_graph(
         query: Annotated[str, "A plain-text search query to find relevant knowledge in the knowledge graph."]
 ) -> dict:
-    graph_id = get_http_headers()['x-graph-id']
+    headers = get_http_headers()
+    graph_id = headers['x-graph-id']
+
+    logger.info("search_knowledge_graph called", query=query)
 
     url = os.environ['KG_URL'] + '/search'
     r = requests.get(url, params={'query': query, 'graph_id': graph_id})
+    result = r.json()
 
-    return r.json()
+    logger.info("search_knowledge_graph completed", **_log_fields(
+        status_code=r.status_code, result=result
+    ))
+
+    return result
