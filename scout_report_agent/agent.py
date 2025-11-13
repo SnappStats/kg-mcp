@@ -6,7 +6,7 @@ from .research_agent import research_player
 from .formatting_agent import format_to_schema
 from utils.logger import logger
 
-@logger.catch
+@logger.catch(reraise=True)
 def generate_scout_report(player_query: str) -> dict:
     """
     Generate a scout report for a player.

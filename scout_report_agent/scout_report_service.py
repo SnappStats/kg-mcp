@@ -13,7 +13,7 @@ database = mongo_client.get_database('snappstats')
 reports_collection = database.get_collection('reports')
 
 @flog
-@logger.catch
+@logger.catch(reraise=True)
 def fetch_scout_report(scout_report_id: str) -> dict:
     '''
     Args:
@@ -29,7 +29,7 @@ def fetch_scout_report(scout_report_id: str) -> dict:
     return report
 
 @flog
-@logger.catch
+@logger.catch(reraise=True)
 def store_scout_report(scout_report: dict) -> str:
     """Stores the knowledge graph in the Google Cloud Storage bucket."""
     scout_report_id = generate_random_string()

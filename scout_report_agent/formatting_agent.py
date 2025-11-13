@@ -40,7 +40,7 @@ Convert the research notes below into a structured scout report.
 '''
 
 
-@logger.catch
+@logger.catch(reraise=True)
 def format_to_schema(research_notes: str, sources: list[str]) -> ScoutReport:
     """
     Convert research notes to structured ScoutReport using Gemini.

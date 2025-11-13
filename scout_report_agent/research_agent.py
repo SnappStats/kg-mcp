@@ -116,7 +116,7 @@ If player cannot be identified or is ambiguous, start your response with:
 - "NOT FOUND: I couldn't find an athlete matching '[name]'. [explanation and suggestions]"
 '''
 
-@logger.catch
+@logger.catch(reraise=True)
 def research_player(player_query: str) -> dict:
     """
     Research a player using Gemini with grounded search.
@@ -160,7 +160,7 @@ def research_player(player_query: str) -> dict:
 
     # Extract sources from grounding metadata and resolve redirects
     sources = []
-    
+
     if hasattr(response, 'candidates') and response.candidates:
             candidate = response.candidates[0]
             if hasattr(candidate, 'grounding_metadata') and candidate.grounding_metadata:
