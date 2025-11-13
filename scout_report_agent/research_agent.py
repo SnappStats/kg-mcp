@@ -160,22 +160,25 @@ def research_player(player_query: str) -> dict:
 
     # Extract sources from grounding metadata and resolve redirects
     sources = []
+    
     if hasattr(response, 'candidates') and response.candidates:
-        candidate = response.candidates[0]
-        if hasattr(candidate, 'grounding_metadata') and candidate.grounding_metadata:
-            for chunk in candidate.grounding_metadata.grounding_chunks:
-                if hasattr(chunk, 'web') and chunk.web:
-                    uri = chunk.web.uri
-                    # Resolve grounding API redirect URLs to actual URLs
-                    if uri and 'vertexaisearch.cloud.google.com/grounding-api-redirect' in uri:
-                        try:
-                            resp = requests.head(uri, allow_redirects=True, timeout=3)
-                            actual_url = resp.url
-                            if actual_url != uri:
-                                uri = actual_url
-                        except Exception:
-                            pass  # Keep the original URI if redirect fails
-                    sources.append(uri)
+            candidate = response.candidates[0]
+            if hasattr(candidate, 'grounding_metadata') and candidate.grounding_metadata:
+                grounding_chunks = getattr(candidate.grounding_metadata, 'grounding_chunks', None)
+                if grounding_chunks and hasattr(grounding_chunks, '__iter__'):
+                    for chunk in grounding_chunks:
+                        if hasattr(chunk, 'web') and chunk.web:
+                            uri = chunk.web.uri
+                            # Resolve grounding API redirect URLs to actual URLs
+                            if uri and 'vertexaisearch.cloud.google.com/grounding-api-redirect' in uri:
+                                try:
+                                    resp = requests.head(uri, allow_redirects=True, timeout=3)
+                                    actual_url = resp.url
+                                    if actual_url != uri:
+                                        uri = actual_url
+                                except Exception:
+                                    pass  # Keep the original URI if redirect fails
+                            sources.append(uri)
 
     return {
         "status": "success",
