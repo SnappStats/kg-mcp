@@ -1,13 +1,10 @@
 """
 ADK Agent for Football Recruiting Scout Reports
-
-This agent generates comprehensive scout reports for football recruits using
-a multi-agent parallel research architecture with grounding metadata.
 """
 
 from google.adk.agents import Agent
 from google.genai import types
-from parallel_scout_v5 import generate_scout_report_parallel
+from .parallel_scout_v5 import generate_scout_report_parallel
 import json
 
 

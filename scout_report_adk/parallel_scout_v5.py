@@ -23,7 +23,7 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools import google_search, AgentTool
 from google.genai import types
-from scout_report_schema import ScoutReport
+from .scout_report_schema import ScoutReport
 
 # Load environment
 load_dotenv()
