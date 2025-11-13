@@ -1,13 +1,13 @@
 import datetime as dt
+from utils.logger import logger
 from dotenv import load_dotenv
-
 from .agent import generate_scout_report
 from .scout_report_service import store_scout_report
 
 # Load environment variables from .env file in root directory
 load_dotenv()
 
-
+@logger.catch(reraise=True)
 async def main(graph_id: str, user_id: str, query: str):
     """
     Main entry point for scout report generation via MCP.

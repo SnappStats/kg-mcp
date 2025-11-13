@@ -75,10 +75,10 @@ async def generate_scout_report(
             graph_id=graph_id, user_id=user_id, query=player_context)
 
     logger.info("generate_scout_report completed", **_log_fields(
-        resutlt=result
+        result=result
     ))
-
-    if 'player' in result:
+    
+    if result and ('player' in result):
         message = f"""{result['player']} has property "Scout Report ID" with value "{result['id']}"."""
         logger.info('player found in generate scout report result, proceeding to curate knowledge')
         asyncio.create_task(_curate_knowledge(graph_id=graph_id, user_id=user_id, query=message))
