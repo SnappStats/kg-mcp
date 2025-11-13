@@ -15,7 +15,7 @@ def log_with_request_context(func: Callable[P, R]) -> Callable[P, R]:
         graph_id = headers['x-graph-id']
         user_id = headers.get('x-author-id', 'anonymous')
         trace_id = headers.get('x-trace-id')
-        
+        logger.info(f"received trace id: {trace_id}")
         with logger.contextualize(
             tool=func.__name__,
             user_id=user_id,
