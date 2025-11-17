@@ -1,18 +1,14 @@
 import datetime as dt
 import json
 import logging
-import os
-from dotenv import load_dotenv
 from typing import Optional
 from floggit import flog
 
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models import LlmResponse
-from google.cloud import storage
 
 from .utils import generate_random_string, remove_nonalphanumeric
-
-load_dotenv()
+from .kg_service import fetch_knowledge_graph, store_knowledge_graph, store_graph_delta
 
 
 def main(callback_context: CallbackContext, llm_response: LlmResponse) -> Optional[LlmResponse]:
@@ -72,20 +68,24 @@ def _update_graph(
     new_subgraph = _trim_fuzzy_relationships(
             graph=new_subgraph, ignore=valence_entity_ids)
 
-    # Restore original IDs for preserved entities
-    new_subgraph = _restore_original_IDs(
-            old_subgraph=old_subgraph,
-            new_subgraph=new_subgraph)
+    # Give new IDs to new/modified entities
+    new_subgraph = _relabel_inequivalent_entities(
+            g1=old_subgraph, g2=new_subgraph)
 
-    # Identify minimal subgraph delta
-    remove_subgraph, add_subgraph = _identify_minimal_subgraph_delta(
-            new_subgraph=new_subgraph,
-            old_subgraph=old_subgraph)
+    # Restore original IDs for preserved entities
+    new_subgraph = _relabel_equivalent_entities(
+            g1=old_subgraph, g2=new_subgraph)
+
+    # Identify entities/relationships to remove.
+    remove_subgraph = _calc_graph_difference(
+            g1=old_subgraph, g2=new_subgraph)
+
+    # Identify entities/relationships to add.
+    add_subgraph = _calc_graph_difference(
+            g1=new_subgraph, g2=old_subgraph)
 
     # Update metadata for new entities
-    add_subgraph = _update_graph_metadata(
-            graph=add_subgraph,
-            user_id=user_id)
+    add_subgraph = _update_graph_metadata(g=add_subgraph, user_id=user_id)
 
     # Splice updated subgraph into knowledge graph
     _splice_subgraph(
@@ -96,7 +96,9 @@ def _update_graph(
 
 @flog
 def _trim_fuzzy_relationships(graph: dict, ignore: set) -> dict:
-    '''Remove edges that refer to nonexistent entities.'''
+    '''Remove edges that refer to nonexistent entities.
+
+    Such edges would arise due to imperfect AI.'''
 
     required_entity_ids = graph['entities'].keys() - ignore
     graph['relationships'] = [
@@ -138,7 +140,7 @@ def _get_missing_entity_ids(
 
 
 @flog
-def _update_graph_metadata(graph: dict, user_id: str) -> dict:
+def _update_graph_metadata(g: dict, user_id: str) -> dict:
     '''Updates the metadata of all entities in the graph.
 
     Args:
@@ -148,154 +150,145 @@ def _update_graph_metadata(graph: dict, user_id: str) -> dict:
     Returns:
         dict: The graph with updated metadata.
     '''
-    id_mapping = {
-            entity_id: _generate_entity_id(entity['entity_names'][0])
-            for entity_id, entity in graph['entities'].items()
-    }
 
-    # Update entity IDs
-    updated_entities = {}
-    for old_entity_id, entity in graph['entities'].items():
-        new_entity_id = id_mapping[old_entity_id]
-        entity['entity_id'] = new_entity_id
+    for entity in g['entities'].values():
         entity['updated_by'] = user_id
         entity['updated_at'] = dt.datetime.now(dt.UTC).isoformat(timespec='seconds')
-        updated_entities[new_entity_id] = entity
-    graph['entities'] = updated_entities
 
-    # Update relationships
-    for rel in graph['relationships']:
+    return g
+
+
+def _generate_entity_id(name: str) -> str:
+    return f"{remove_nonalphanumeric(name)[:4].lower()}.{generate_random_string(length=4)}"
+
+
+@flog
+def _signature(entity):
+    return {
+            k: v for k, v in entity.items()
+            if k in ['entity_names', 'properties']}
+
+
+@flog
+def _relabel_entities(g: dict, id_mapping: dict) -> dict:
+    '''
+    Args:
+        g (dict): A graph
+        entity_ids (list[str]): A list of entity IDs in g to be relabeled
+    Returns:
+        (dict): The graph g, but with the specified entity IDs changed
+    '''
+
+    # Add relabeled entities to g
+    for old_id, new_id in id_mapping.items():
+        g['entities'][new_id] = g['entities'][old_id] 
+        g['entities'][new_id]['entity_id'] = new_id
+
+    # Remove entities having old (and different!) IDs
+    g['entities'] = {
+            k: v for k, v in g['entities'].items()
+            if (k not in id_mapping) or (id_mapping.get(k) == k)
+    }
+
+    # Update relationships to use new IDs
+    for rel in g['relationships']:
         rel['source_entity_id'] = id_mapping.get(
                 rel['source_entity_id'], rel['source_entity_id'])
         rel['target_entity_id'] = id_mapping.get(
                 rel['target_entity_id'], rel['target_entity_id'])
 
-    return graph
+    return g
 
 
 @flog
-def _restore_original_IDs(
-        old_subgraph: dict, new_subgraph: dict) -> dict:
-    '''Returns new_subgraph, but with "preserved" entities restored to their original IDs.
-
+def _relabel_inequivalent_entities(g1: dict, g2: dict) -> dict:
+    '''
     Args:
-        old_subgraph (dict): The old subgraph.
-        new_subgraph (dict): The new subgraph.
+        g1 (dict): A graph.
+        g2 (dict): Another graph, possibly with entities different from g1's
+
     Returns:
-        dict: The new subgraph with relabeled entities.
+        dict: g2, with a new ID for any entity labeled the same as, yet
+        different from, an entity in g1
     '''
 
-    ignore_keys = ['entity_id', 'updated_at', 'updated_by']
-    old_subgraph_entity_signatures = {
-        entity_id: {k: v for k, v in entity.items() if k not in ignore_keys}
-        for entity_id, entity in old_subgraph['entities'].items()
+    entities_to_relabel = []
+
+    colliding_entity_ids = set(g1['entities']).intersection(g2['entities'])
+    entity_ids_to_relabel = [
+            entity_id for entity_id in colliding_entity_ids
+            if _signature(g1['entities'][entity_id]) != _signature(g2['entities'][entity_id])
+    ]
+
+    id_mapping = {
+            entity_id: _generate_entity_id(
+                g2['entities'][entity_id]['entity_names'][0])
+            for entity_id in entity_ids_to_relabel
+    }
+    g2 = _relabel_entities(g2, id_mapping)
+
+    return g2
+
+
+@flog
+def _relabel_equivalent_entities(g1: dict, g2: dict) -> dict:
+    '''
+    Args:
+        g1 (dict): A graph.
+        g2 (dict): Another graph, possibly with entities equivalent to g1's
+
+    Returns:
+        dict: g2, with entities equivalent to g1's now assigned with g1's labels 
+    '''
+
+    g1_entity_signatures = {
+        entity_id: _signature(entity)
+        for entity_id, entity in g1['entities'].items()
     }
     id_mapping = {}
 
-    # Identify "preserved" entities
-    for new_entity_id, new_entity in new_subgraph['entities'].items():
-        for old_entity_id, old_entity_signature in old_subgraph_entity_signatures.items():
-            new_entity_signature = {
-                    k: v for k, v in new_entity.items() if k not in ignore_keys}
-            if new_entity_signature == old_entity_signature:
-                id_mapping[new_entity_id] = old_entity_id
+    # Identify equivalent entities
+    for g2_entity_id, g2_entity in g2['entities'].items():
+        g2_entity_signature = _signature(g2_entity)
+        for g1_entity_id, g1_entity_signature in g1_entity_signatures.items():
+            if g2_entity_signature == g1_entity_signature:
+                id_mapping[g2_entity_id] = g1_entity_id
                 break
 
-    # Apply relabeling
-    # Add preserved entities using old IDs
-    for new_entity_id, new_entity in new_subgraph['entities'].items():
-        if new_entity_id in id_mapping:
-            old_entity_id = id_mapping[new_entity_id]
-            new_subgraph['entities'][old_entity_id] = old_subgraph['entities'][old_entity_id]
+    g2 = _relabel_entities(g2, id_mapping)
 
-    # Excise preserved entities with their new IDs
-    new_subgraph['entities'] = {
-            k: v for k, v in new_subgraph['entities'].items()
-            if k not in id_mapping}
-
-    # Update relationships to use old IDs
-    for rel in new_subgraph['relationships']:
-        if rel['source_entity_id'] in id_mapping:
-            rel['source_entity_id'] = id_mapping[rel['source_entity_id']]
-        if rel['target_entity_id'] in id_mapping:
-            rel['target_entity_id'] = id_mapping[rel['target_entity_id']]
-
-    # For good measure, ensure new_subgraph includes "valence" entities
-    for entity_id, entity in old_subgraph['entities'].items():
+    # For good measure, ensure g2 includes "valence" entities
+    for entity_id, entity in g1['entities'].items():
         if entity['has_external_neighbor']:
-            new_subgraph['entities'][entity_id] = entity
+            g2['entities'][entity_id] = entity
 
-    return new_subgraph
+    return g2
 
 
 @flog
-def _identify_minimal_subgraph_delta(new_subgraph: dict, old_subgraph: dict) -> dict:
-    '''Identifies the minimal subgraphs to delete and add.
-
-    An entity/relationship should be removed if it exists in old_subgraph but not in new_subgraph.
-    An entity/relationship should be added if it exists in new_subgraph but not in old_subgraph.
-
+def _calc_graph_difference(g1: dict, g2: dict) -> dict:
+    '''
     Args:
-        new_subgraph (dict): The new subgraph.
-        old_subgraph (dict): The old subgraph.
+        g1 (dict): A graph.
+        g2 (dict): Another graph.
 
     Returns:
-        dict: The subgraphs to remove and add.
+        dict: The entities/relationships in g1 - g2
+
+    NB: Algo assumes A ~ B <=> A.id == B.id
     '''
 
-    add_subgraph = {'entities': {}, 'relationships': []}
-    add_subgraph['entities'] = {
-            k: v for k, v in new_subgraph['entities'].items()
-            if k not in old_subgraph['entities']
+    g1_minus_g2 = {'entities': {}, 'relationships': []}
+    g1_minus_g2['entities'] = {
+            k: v for k, v in g1['entities'].items()
+            if k not in g2['entities']
     }
-    add_subgraph['relationships'] = [
-            rel for rel in new_subgraph['relationships']
-            if rel not in old_subgraph['relationships']
+    g1_minus_g2['relationships'] = [
+            rel for rel in g1['relationships']
+            if rel not in g2['relationships']
     ]
 
-    remove_subgraph = {'entities': {}, 'relationships': []}
-    remove_subgraph['entities'] = {
-            k: v for k, v in old_subgraph['entities'].items()
-            if k not in new_subgraph['entities']
-    }
-    remove_subgraph['relationships'] = [
-            rel for rel in old_subgraph['relationships']
-            if rel not in new_subgraph['relationships']
-    ]
-
-    return remove_subgraph, add_subgraph
-
-
-def _get_bucket():
-    storage_client = storage.Client()
-    bucket_name = os.environ.get("KNOWLEDGE_GRAPH_BUCKET")
-    if not bucket_name:
-        raise ValueError("KNOWLEDGE_GRAPH_BUCKET environment variable not set.")
-    return storage_client.get_bucket(bucket_name)
-
-
-def _fetch_knowledge_graph(graph_id: str) -> dict:
-    """Fetches the knowledge graph from the Google Cloud Storage bucket."""
-    bucket = _get_bucket()
-    blob = bucket.blob(f"{graph_id}.json")
-    if not blob.exists():
-        return {"entities": {}, "relationships": []}
-    else:
-        content = blob.download_as_text()
-        return json.loads(content)
-
-
-def _store_knowledge_graph(knowledge_graph: dict, graph_id: str) -> None:
-    """Stores the knowledge graph in the Google Cloud Storage bucket."""
-    bucket = _get_bucket()
-    blob = bucket.blob(f"{graph_id}.json")
-    blob.upload_from_string(
-        json.dumps(knowledge_graph), content_type="application/json"
-    )
-
-
-def _generate_entity_id(name: str) -> str:
-    return f"{remove_nonalphanumeric(name)[:4].lower()}.{generate_random_string(length=4)}"
+    return g1_minus_g2
 
 
 @flog
@@ -308,7 +301,7 @@ def _splice_subgraph(
     excising old_subgraph first.'''
 
     # This is where to add a lock, to be removed either if graph is erroneous or stored.
-    graph = _fetch_knowledge_graph(graph_id)
+    graph = fetch_knowledge_graph(graph_id)
 
     # Excise old subgraph
     graph['entities'] = {
@@ -343,7 +336,9 @@ def _splice_subgraph(
             }
         )
     else:
-        _store_knowledge_graph(knowledge_graph=graph, graph_id=graph_id)
+        store_graph_delta(
+                remove_subgraph=remove_subgraph, add_subgraph=add_subgraph)
+        store_knowledge_graph(knowledge_graph=graph, graph_id=graph_id)
 
 
 @flog
