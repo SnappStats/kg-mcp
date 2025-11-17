@@ -74,7 +74,7 @@ def store_tool_response(
 
     if tool.name == 'fetch_scout_report_by_id':
         tool_context.state['scout_report'] = tool_response.structuredContent
-    if tool.name == 'get_scout_report':
+    if tool.name == 'generate_scout_report':
         if r := tool_response.structuredContent:
             if 'player' in (scout_report := (r['result'] or {})):
                 tool_context.state['scout_report'] = scout_report
