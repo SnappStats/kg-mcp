@@ -30,10 +30,11 @@ async def generate_scout_report(player_query: str) -> dict:
     if scout_report.player.hudl_profile is not None:
         hudl_profile = await extract_hudl_profile_data(scout_report.player.hudl_profile)
         
-        is_same_player = player_data and player_data.name and all(name_part.lower() in player_name.lower() for name_part in player_data.name.split())
+        player_name = scout_report.player.name
+        is_same_player = hudl_profile and hudl_profile.name and all(name_part.lower() in player_name.lower() for name_part in hudl_profile.name.split())
         if not is_same_player:
             scout_report.player.hudl_profile = None
-            logger.warning(f"player name mismatch: the hudl profile scraped from the provided url '{player_data.name if player_data else 'None'}' does not match expected player '{player_name}'")
+            logger.warning(f"player name mismatch: the hudl profile scraped from the provided url '{hudl_profile.name if hudl_profile else 'None'}' does not match expected player '{player_name}'")
         
         # NOTE: we take the first one since they are sorted at the source, this should be the latest one with most views
         if is_same_player and hudl_profile and hudl_profile.hudl_video_sources and len(hudl_profile.hudl_video_sources) > 0:
