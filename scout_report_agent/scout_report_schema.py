@@ -32,6 +32,14 @@ class Player(BaseModel):
         default_factory=dict,
         description="A map of social media platform names to the player's handle/username."
     )
+    hudl_profile: str = Field(
+        ...,
+        description="The player hudl.com profile url, e.g., https://www.hudl.com/profile/..."
+    )
+    highlighted_reel: Optional[str] = Field(
+        None,
+        description="The latest player highlight reel, IMPORTANT: ignore this field"
+    )
 
 
 class ScoutReport(BaseModel):

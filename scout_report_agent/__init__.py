@@ -1,0 +1,1 @@
+# Scout report agent package

@@ -5,6 +5,14 @@ import requests
 from dotenv import load_dotenv
 from typing import Annotated
 
+# NOTE: this loads environment variables from .env file BEFORE any other imports
+load_dotenv()
+
+from utils.gcp_service_creds import load_service_credentials
+
+# NOTE: do not change this, it is imperative to run this before any of the other imports that rely on the gcp credentials
+load_service_credentials()
+
 from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_http_headers
 
@@ -18,9 +26,6 @@ from scout_report_agent.main import main as _fetch_scout_report
 from scout_report_agent.scout_report_service import fetch_scout_report
 from utils.logger import logger, _log_fields, _safe_serialize
 from utils.logs_with_request_context import log_with_request_context
-
-# Load environment variables from .env file in root directory
-load_dotenv()
 
 provider = TracerProvider()
 processor = export.BatchSpanProcessor(
