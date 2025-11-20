@@ -28,7 +28,7 @@ async def generate_scout_report(player_query: str) -> dict:
     )
     
     if scout_report.player.hudl_profile is not None:
-        hudl_profile = await extract_hudl_profile_data(scout_report.player.hudl_profile, scout_report.player.name)
+        hudl_profile = await extract_hudl_profile_data(scout_report.player.hudl_profile)
         
         is_same_player = player_data and player_data.name and all(name_part.lower() in player_name.lower() for name_part in player_data.name.split())
         if not is_same_player:
