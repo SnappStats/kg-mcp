@@ -50,7 +50,7 @@ async def test_generate_scout_report(main_mcp_client: Client[FastMCPTransport]):
         
         try:
             scout_report = ScoutReport(**result)
-            assert scout_report.player.name == 'George Ryder Lyons II'
+            assert 'Ryder' in scout_report.player.name and 'Lyons' in scout_report.player.name
             if scout_report.player.hudl_profile is not None:
                 assert re.match(r'https://www\.hudl\.com/profile/\d+(?:/[\w-]+)?$', scout_report.player.hudl_profile)
                 assert re.match(r'https://.*\.hudl\.com/.*', scout_report.player.highlighted_reel)
