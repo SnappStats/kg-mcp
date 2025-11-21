@@ -21,7 +21,7 @@ async def main(graph_id: str, user_id: str, query: str):
         Scout report dict or feedback dict
     """
     # Generate the scout report
-    scout_report = generate_scout_report(query)
+    scout_report = await generate_scout_report(query)
 
     # If successful, add timestamp and store
     if 'player' in scout_report:

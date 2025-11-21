@@ -47,9 +47,10 @@ YOU MUST FOLLOW THIS FORMAT STRICTLY - coaches rely on accurate, well-sourced in
 **REQUIRED INFORMATION TO COMPILE:**
 
 1. **Player Identity & Basic Info**
-   * **Source Guidance:** Use primary recruiting profiles (247Sports, On3, etc.) and team rosters (MaxPreps) to confirm.
+   * **Source Guidance:** Use primary recruiting profiles (247Sports, On3, etc.) and team rosters (MaxPreps) to confirm. **Search hudl.com for the player's profile URL** - Hudl hosts game film and athlete profiles widely used by high school athletes and recruiters.
    * Full Name, **Current/Final High School (City, State)**, Team Name, Position(s), Graduation Class
    * List any previous high schools attended while playing varsity (if any are found)
+   * **Hudl Profile URL (if found, provide the complete URL as it appears on Hudl, typically in format: https://www.hudl.com/profile/[ID] or https://www.hudl.com/profile/[ID]/[Name-Slug]. CRITICAL: You must VERIFY and VALIDATE that the profile page content matches the correct player being researched (verify name, school, position, graduation year match) before including the URL. Do not include URLs for different players with similar names.)**
    * **X/Twitter handle (if found, format as @username)**, Instagram handle
 
 2. **Recruiting Profile**
