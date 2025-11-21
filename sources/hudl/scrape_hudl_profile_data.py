@@ -5,12 +5,29 @@ import re
 from utils.logger import logger
 from .hudl_types import HudlPlayerData, HudlVideoSource, AthleticismStats
 
+# Module-level session for reuse across requests
+_session: aiohttp.ClientSession | None = None
+
+
+async def get_session() -> aiohttp.ClientSession:
+    global _session
+    if _session is None or _session.closed:
+        _session = aiohttp.ClientSession()
+    return _session
+
+
+async def close_session():
+    global _session
+    if _session is not None and not _session.closed:
+        await _session.close()
+        _session = None
+
 
 @logger.catch(reraise=True)
 async def scrape_hudl_profile_data(url: str) -> HudlPlayerData:
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            html_content = await response.text()
+    session = await get_session()
+    async with session.get(url) as response:
+        html_content = await response.text()
 
     soup = BeautifulSoup(html_content, "html.parser")
 
@@ -55,6 +72,10 @@ async def scrape_hudl_profile_data(url: str) -> HudlPlayerData:
     height = safe_str(overview.get("height"))
     weight = safe_str(overview.get("weight"))
     location = safe_str(overview.get("location"))
+    avatar_url = user_data.get("profileLogoUri")
+    
+    if avatar_url is None:
+        avatar_url = safe_str(user_data.get("mobileProfileLogoUri"))
 
     graduation_year = overview.get("graduationYear")
     class_year = str(graduation_year) if graduation_year is not None else None
@@ -183,5 +204,6 @@ async def scrape_hudl_profile_data(url: str) -> HudlPlayerData:
         athleticism=athleticism_stats,
         source_identifier=safe_str(user_data.get("userId")),
         hudl_video_sources=hudl_video_sources,
+        avatar_url=avatar_url
     )
 

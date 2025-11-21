@@ -89,8 +89,10 @@ def format_to_schema(research_notes: str, sources: list[str]) -> ScoutReport:
         import json
 
         def stringify_all(obj):
-            """Recursively convert all values to strings"""
-            if isinstance(obj, dict):
+            """Recursively convert all values to strings, except None"""
+            if obj is None:
+                return None
+            elif isinstance(obj, dict):
                 return {k: stringify_all(v) for k, v in obj.items()}
             elif isinstance(obj, list):
                 return [stringify_all(item) for item in obj]

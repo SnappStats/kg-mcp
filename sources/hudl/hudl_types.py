@@ -53,3 +53,4 @@ class HudlPlayerData(BaseModel):
     athleticism: Optional[AthleticismStats] = None
     hudl_video_sources: List[HudlVideoSource]
     source_identifier: str
+    avatar_url: Optional[str] = None
