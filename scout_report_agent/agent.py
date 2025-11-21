@@ -32,13 +32,19 @@ async def generate_scout_report(player_query: str) -> dict:
         
         player_name = scout_report.player.name
         is_same_player = hudl_profile and hudl_profile.name and all(name_part.lower() in player_name.lower() for name_part in hudl_profile.name.split())
-        if not is_same_player:
+        
+        if is_same_player:
+            # NOTE: we take the first one since they are sorted at the source, this should be the latest one with most views
+            if hudl_profile and hudl_profile.hudl_video_sources and len(hudl_profile.hudl_video_sources) > 0:
+                scout_report.player.highlighted_reel = hudl_profile.hudl_video_sources[0].url
+            
+            if hudl_profile.avatar_url and scout_report.player.avatar_url is None:
+                scout_report.player.avatar_url = hudl_profile.avatar_url
+        else:
             scout_report.player.hudl_profile = None
             logger.warning(f"player name mismatch: the hudl profile scraped from the provided url '{hudl_profile.name if hudl_profile else 'None'}' does not match expected player '{player_name}'")
         
-        # NOTE: we take the first one since they are sorted at the source, this should be the latest one with most views
-        if is_same_player and hudl_profile and hudl_profile.hudl_video_sources and len(hudl_profile.hudl_video_sources) > 0:
-            scout_report.player.highlighted_reel = hudl_profile.hudl_video_sources[0].url
+        
 
     # Return as dict - frontend expects nested player object
     # Format: {'player': {'name': str, 'physicals': {}, 'socials': {}}, 'tags': [], 'analysis': [], 'stats': []}

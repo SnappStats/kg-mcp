@@ -40,6 +40,10 @@ class Player(BaseModel):
         None,
         description="The latest player highlight reel, IMPORTANT: ignore this field"
     )
+    avatar_url: Optional[str] = Field(
+        None,
+        description="The player profile photo URL. Only include if a clear, valid facial photo of the player is available. Leave empty if no suitable photo exists or if the image quality is poor."
+    )
 
 
 class ScoutReport(BaseModel):

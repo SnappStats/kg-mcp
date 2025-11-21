@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import requests
+import atexit
 from dotenv import load_dotenv
 from typing import Annotated
 
@@ -24,6 +25,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from knowledge_curation_agent.main import main as _curate_knowledge
 from scout_report_agent.main import main as _fetch_scout_report
 from scout_report_agent.scout_report_service import fetch_scout_report
+from sources.hudl.scrape_hudl_profile_data import close_session
 from utils.logger import logger, _log_fields, _safe_serialize
 from utils.logs_with_request_context import log_with_request_context
 
@@ -137,3 +139,11 @@ async def search_knowledge_graph(
     ))
 
     return result
+
+def cleanup():
+    try:
+        asyncio.run(close_session())
+    except Exception as e:
+        logger.error(f"error raised during server cleanup: {e}")
+
+atexit.register(cleanup)
