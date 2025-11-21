@@ -22,10 +22,12 @@ dependencies = [
     "bs4>=0.0.2",
     "aiohttp>=3.13.2",
     "poethepoet>=0.31.1",
+    "ddgs>=0.1.0",
 ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+pythonpath = ["."]
 
 [dependency-groups]
 dev = [
