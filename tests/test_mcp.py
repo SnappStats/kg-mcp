@@ -39,7 +39,7 @@ async def test_generate_scout_report(main_mcp_client: Client[FastMCPTransport]):
          patch('utils.logs_with_request_context.get_http_headers', return_value=mock_headers):
         call_result = await main_mcp_client.call_tool(
             'generate_scout_report',
-            arguments={'player_context': 'Ryder Lyons'}
+            arguments={'athlete_context': 'folsom high', 'athlete_name': 'Ryder Lyons'}
         )
         
         assert call_result is not None

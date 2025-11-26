@@ -68,18 +68,20 @@ async def curate_knowledge(
 )
 @log_with_request_context
 async def generate_scout_report(
-        player_context: Annotated[str, "Player name and disambiguating context."]
+        athlete_context: Annotated[str, "Details for the athlete, disambiguating context."],
+        athlete_name: Annotated[str, "The name of the athlete"]
 ) -> str:
     headers = get_http_headers()
     graph_id = headers['x-graph-id']
     user_id = headers.get('x-author-id', 'anonymous')
 
     logger.info("generate_scout_report called", **_log_fields(
-        player_context=player_context
+        athlete_context=athlete_context,
+        athlete_name=athlete_name
     ))
 
     result = await _fetch_scout_report(
-            graph_id=graph_id, user_id=user_id, query=player_context)
+            graph_id=graph_id, user_id=user_id, query=athlete_context, athlete_name=athlete_name)
 
     logger.info("generate_scout_report completed", **_log_fields(
         result=result

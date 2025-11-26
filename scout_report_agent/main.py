@@ -8,7 +8,7 @@ from .scout_report_service import store_scout_report
 load_dotenv()
 
 @logger.catch(reraise=True)
-async def main(graph_id: str, user_id: str, query: str):
+async def main(graph_id: str, user_id: str, query: str, athlete_name: str):
     """
     Main entry point for scout report generation via MCP.
 
@@ -21,7 +21,7 @@ async def main(graph_id: str, user_id: str, query: str):
         Scout report dict or feedback dict
     """
     # Generate the scout report
-    scout_report = await generate_scout_report(query)
+    scout_report = await generate_scout_report(f'{athlete_name}, {query}', athlete_name)
 
     # If successful, add timestamp and store
     if 'player' in scout_report:

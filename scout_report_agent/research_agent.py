@@ -4,12 +4,12 @@ import json
 import re
 from google import genai
 from google.genai import types
-from utils.logger import logger
+from utils.logger import logger, _log_fields
 from .prompts.research_prompt import RESEARCH_PROMPT
 from .tools.search_hudl_player import search_hudl_player as search_hudl_player_impl
 
 @logger.catch(reraise=True)
-def research_player(player_query: str) -> dict:
+def research_player(query: str, athlete_name: str) -> dict:
     """
     Research a player using Gemini with grounded search.
 
@@ -24,17 +24,15 @@ def research_player(player_query: str) -> dict:
         location=os.environ.get('GOOGLE_CLOUD_LOCATION')
     )
 
-    # Pre-search Hudl for the player to provide context
-    # This works around Gemini's limitation of not mixing search tools with custom functions
     hudl_search_result = None
     try:
-        hudl_result_json = search_hudl_player_impl(player_query)
+        hudl_result_json = search_hudl_player_impl(athlete_name)
         hudl_search_result = json.loads(hudl_result_json)
-        logger.info(f"Hudl pre-search for '{player_query}': {hudl_search_result.get('status')}")
+        logger.info("hudl pre-search completed", *_log_fields(query=query, result=hudl_search_result))
     except Exception as e:
-        logger.warning(f"Hudl pre-search failed for '{player_query}': {e}")
+        logger.warning(f"hudl pre-search failed for '{query}': {e}")
 
-    prompt_with_context = f"{RESEARCH_PROMPT}\n\n**PLAYER TO RESEARCH:** {player_query}"
+    prompt_with_context = f"{RESEARCH_PROMPT}\n\n**PLAYER TO RESEARCH:** {query}"
     
     if hudl_search_result and hudl_search_result.get('status') == 'success':
         urls = hudl_search_result.get('urls', [])

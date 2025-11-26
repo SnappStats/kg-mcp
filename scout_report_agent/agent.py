@@ -4,18 +4,18 @@ from utils.logger import logger
 from .extract_hudl_data import extract_hudl_profile_data
 
 @logger.catch(reraise=True)
-async def generate_scout_report(player_query: str) -> dict:
+async def generate_scout_report(query: str, athlete_name: str) -> dict:
     """
     Generate a scout report for a player.
 
     Args:
-        player_query: Player name and disambiguating context
+        query: Player name and disambiguating context
 
     Returns either:
     - Scout report dict with 'player' key (success) - save to GCS
     - {"text": str} - Needs clarification, return to root agent
     """
-    research_result = research_player(player_query)
+    research_result = research_player(query, athlete_name)
 
     if research_result["status"] != "success":
         return {

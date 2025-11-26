@@ -11,6 +11,12 @@ from utils.logger import logger
 FORMATTING_PROMPT = '''
 You are converting comprehensive research notes into a structured scout report.
 
+**CRITICAL: JSON FORMATTING**
+* Output MUST be valid JSON - properly escape all quotes, newlines, and special characters
+* Use \\n for line breaks within strings, not literal newlines
+* Escape all quotes within strings as \\"
+* Do not truncate or cut off any JSON fields - complete all strings properly
+
 **CRITICAL: INLINE CITATION FORMAT**
 * Convert [1] [2] style citations to inline markdown format: ([Source Name](url))
 * When multiple sources support one fact, group them: ([ESPN](url1), [247Sports](url2))
@@ -70,42 +76,54 @@ def format_to_schema(research_notes: str, sources: list[str]) -> ScoutReport:
 {research_notes}
 """
 
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.1,
-                response_mime_type='application/json',
-                response_schema=ScoutReport
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.1 if attempt == 0 else 0.0,  # Lower temp on retries
+                    response_mime_type='application/json',
+                    response_schema=ScoutReport
+                )
             )
-        )
-    except Exception as e:
-        logger.exception("formatting agent raised an exception")
-        raise
+            
+            # Parse the JSON response into ScoutReport
+            import json
 
-    # Parse the JSON response into ScoutReport
-    try:
-        import json
+            def stringify_all(obj):
+                """Recursively convert all values to strings, except None"""
+                if obj is None:
+                    return None
+                elif isinstance(obj, dict):
+                    return {k: stringify_all(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [stringify_all(item) for item in obj]
+                else:
+                    return str(obj)
 
-        def stringify_all(obj):
-            """Recursively convert all values to strings, except None"""
-            if obj is None:
-                return None
-            elif isinstance(obj, dict):
-                return {k: stringify_all(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [stringify_all(item) for item in obj]
-            else:
-                return str(obj)
+            data = json.loads(response.text)
+            data = stringify_all(data)
 
-        data = json.loads(response.text)
-        data = stringify_all(data)
-
-        return ScoutReport.model_validate(data)
-    except Exception as e:
-        logger.exception(
-            "failed to parse formatting agent output",
-            response_text=response.text
-        )
-        raise
+            return ScoutReport.model_validate(data)
+            
+        except json.JSONDecodeError as e:
+            logger.error(
+                f"JSON parsing failed on attempt {attempt + 1}/{max_retries}",
+                error=str(e),
+                response_preview=response.text[:500] if 'response' in locals() else None
+            )
+            if attempt == max_retries - 1:
+                logger.exception(
+                    "failed to parse formatting agent output after all retries",
+                    response_text=response.text if 'response' in locals() else None
+                )
+                raise
+            # Continue to next retry
+            
+        except Exception as e:
+            logger.exception(f"formatting agent raised an exception on attempt {attempt + 1}")
+            if attempt == max_retries - 1:
+                raise
+            # Continue to next retry
