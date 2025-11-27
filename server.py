@@ -22,7 +22,6 @@ from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
 from opentelemetry.sdk.trace import export
 from opentelemetry.sdk.trace import TracerProvider
 
-from knowledge_curation_agent.main import main as _curate_knowledge
 from scout_report_agent.main import main as _fetch_scout_report
 from scout_report_agent.scout_report_service import fetch_scout_report
 from sources.hudl.scrape_hudl_profile_data import close_session
@@ -53,11 +52,19 @@ async def curate_knowledge(
 
     logger.info("curate_knowledge called", query=query)
 
-    asyncio.create_task(_curate_knowledge(graph_id=graph_id, user_id=user_id, query=query))
+    url = os.environ['KG_URL'] + '/curate_knowledge'
 
-    logger.info("curate_knowledge completed")
-    
-    return 'This is being taken care of.'
+    r = requests.post(url, json={
+        'query': query,
+        'graph_id': graph_id,
+        'user_id': user_id
+    })
+    if r.status_code == 200:
+        logger.info("curate_knowledge completed")
+        return r.json()
+    else:
+        logger.warning(f"Failed to call curate knowledge endpoint. {r.text}")
+        return '(Move on....)'
 
 
 @mcp.tool(
