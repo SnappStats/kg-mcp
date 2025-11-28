@@ -22,7 +22,7 @@ from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
 from opentelemetry.sdk.trace import export
 from opentelemetry.sdk.trace import TracerProvider
 
-from knowledge_curation_agent.main import main as _curate_knowledge
+from knowledge_curation_tool import main as _curate_knowledge
 from scout_report_agent.main import main as _fetch_scout_report
 from scout_report_agent.scout_report_service import fetch_scout_report
 from sources.hudl.scrape_hudl_profile_data import close_session
@@ -51,14 +51,7 @@ async def curate_knowledge(
     graph_id = headers['x-graph-id']
     user_id = headers.get('x-author-id', 'anonymous')
 
-    logger.info("curate_knowledge called", query=query)
-
-    asyncio.create_task(_curate_knowledge(graph_id=graph_id, user_id=user_id, query=query))
-
-    logger.info("curate_knowledge completed")
-    
-    return 'This is being taken care of.'
-
+    return _curate_knowledge(graph_id=graph_id, user_id=user_id, query=query)
 
 @mcp.tool(
         name='generate_scout_report',
@@ -90,7 +83,7 @@ async def generate_scout_report(
     if result and ('player' in result):
         message = f"""{result['player']} has property "Scout Report ID" with value "{result['id']}"."""
         logger.info('player found in generate scout report result, proceeding to curate knowledge')
-        asyncio.create_task(_curate_knowledge(graph_id=graph_id, user_id=user_id, query=message))
+        _curate_knowledge(graph_id=graph_id, user_id=user_id, query=message)
 
     return json.dumps(result)
 

@@ -1,1 +1,0 @@
-# Knowledge curation agent package
