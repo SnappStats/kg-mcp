@@ -1,9 +1,9 @@
 import requests
-from dotenv import load_env
+from dotenv import load_dotenv
 import os
 from utils.logger import logger
 
-load_env()
+load_dotenv()
 
 
 def main(query: str, graph_id: str, user_id: str) -> dict:
